@@ -76,15 +76,15 @@ test("mobile admin navigation keeps the active section visible and controls touc
 });
 
 test("admin history previews quote the first message instead of saying started", () => {
-  assert.equal((html.match(/\?\s*"> "\s*\+\s*s\.firstMessage\s*:\s*"created "/g) || []).length, 1);
+  assert.equal((html.match(/\?\s*"> "\s*\+\s*s\.firstMessage\s*:\s*i18nT\("created "\)/g) || []).length, 1);
   assert.doesNotMatch(html, /\? "started " \+ s\.firstMessage : "created "/);
 });
 
 test("transcript visibility controls stay in the sticky header and filter lazy-rendered entries", () => {
   const transcript = html.slice(html.indexOf("async function showTranscript("));
   assert.match(html, /id="header-controls" aria-label="Page controls"/);
-  assert.match(html, /checkbox\("thinking", "thinking"\)/);
-  assert.match(html, /checkbox\("tool results", "toolResults"\)/);
+  assert.match(html, /checkbox\(i18nT\("thinking"\), "thinking"\)/);
+  assert.match(html, /checkbox\(i18nT\("tool results"\), "toolResults"\)/);
   assert.match(html, /materialize\(from, firstRendered, true\);[\s\S]*applyTranscriptControls\(\);/);
   assert.match(html, /applyTranscriptControls\(\);\s*const addedHeight = document\.body\.scrollHeight - prevHeight;/);
   assert.match(html, /if \(addedHeight > 1\) io\.observe\(sentinel\);\s*else pauseFilteredReveal\(\);/);
@@ -176,7 +176,7 @@ test("governance reviews high-impact changes in product and preserves drafts", (
   assert.match(html, /Review the immutable change below/);
   assert.match(html, /function hasGovernanceDraft\(\)/);
   assert.match(html, /function governanceScopeName\(scopeId = scope\)/);
-  assert.match(html, /"Organization · " \+ scopeId/);
+  assert.match(html, /i18nT\("Organization · "\) \+ scopeId/);
   assert.match(html, /window\.addEventListener\("beforeunload"/);
   assert.match(html, /function governanceSaveInFlight\(\)/);
   assert.match(html, /The change may already be committing and cannot be safely discarded/);
@@ -188,7 +188,7 @@ test("governance makes unenforced egress a draft instead of an effective control
   assert.match(html, /id="egress-capability"/);
   assert.match(html, />\s*Save draft\s*<\/button\s*>/);
   assert.match(html, /data\.egressEnforcement/);
-  assert.match(html, /enforcement\.active \? "Save policy" : "Save draft"/);
+  assert.match(html, /enforcement\.active \? i18nT\("Save policy"\) : i18nT\("Save draft"\)/);
   assert.match(html, /enforcement\.reason === "control_plane_unconfigured"/);
   assert.match(html, /control plane cannot mint a reachable proxy token/);
   assert.match(html, /Backend supports policy; control plane inactive/);
@@ -215,7 +215,7 @@ test("effective egress summary preserves deny-before-allow semantics", () => {
   );
   assert.match(
     html,
-    /else if \(effectiveDenyCount\) \{\s*effectiveEgressLabel = plural\(effectiveDenyCount, "denied host"\) \+ " · all other hosts allowed";/,
+    /else if \(effectiveDenyCount\) \{\s*effectiveEgressLabel = plural\(effectiveDenyCount, "denied host"\) \+ i18nT\(" · all other hosts allowed"\);/,
   );
 });
 
@@ -271,9 +271,9 @@ test("governance credential editor previews effective capability and uses an in-
   assert.match(html, /Save failed because the admin service could not be reached/);
   assert.match(
     html,
-    /catch \{\s*updateScFormDirty\(\);\s*setStatus\(\s*"st-service-credentials",\s*"Save failed because the admin service could not be reached/,
+    /catch \{\s*updateScFormDirty\(\);\s*setStatus\(\s*"st-service-credentials",\s*i18nT\("Save failed because the admin service could not be reached/,
   );
-  assert.match(html, /usageTruncated \? "at least "/);
+  assert.match(html, /usageTruncated \? i18nT\("at least "\)/);
   assert.match(html, /Recent users in the retained window/);
   assert.doesNotMatch(html, /serviceCredList\.find\(\(c\) => c\.slug === scEditing\)\?\.updatedAt/);
   assert.match(html, /personal\|team\|org\|channel\|group/);

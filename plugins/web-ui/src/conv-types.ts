@@ -70,6 +70,7 @@ export interface ChatSurface {
   ): void;
   mountLoadingPane(): void;
   drawActiveChat(agent?: Agent | null, opts?: { forceScroll?: boolean }): void;
+  reattachHost(): void;
   setTranscriptWindow(anchorSeq: number | null, earlierCount: number): void;
   requestBackgroundPanel(sessionId: string | null, threadRef: string | null): void;
   activePendingApprovals(): PendingApproval[];

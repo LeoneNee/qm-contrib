@@ -18,11 +18,11 @@ test("policy edits redraw immediately and preserve focused text controls", () =>
 
 test("policy controls use product language and persistent accessible labels", () => {
   for (const label of ["Ignore", "Batch updates", "Act immediately", "Treat like a person"])
-    assert.match(policy, new RegExp(label));
+    assert.match(policy, new RegExp(`t\\("${label}"\\)`));
   assert.match(policy, /<label class="ambient-field-label" for="ambient-orders">/);
   assert.match(policy, /aria-describedby="ambient-orders-hint"/);
   assert.match(policy, /describedBy: "ambient-enabled-hint"/);
-  assert.match(policy, /aria-label="Bot name"/);
+  assert.match(policy, /aria-label=\$\{t\("Bot name"\)\}/);
   assert.match(policy, /required/);
 });
 

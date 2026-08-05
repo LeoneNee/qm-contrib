@@ -157,7 +157,9 @@ test("web-ui /app-edit drops x-frame-options so its own frame-ancestors CSP can 
 test("admin tier (derived gate): non-admin sub is 403 before the upstream; admin sub gets admin=<sub>", async () => {
   const denied = await fetch(`${base}/admin/api/me`, { headers: { cookie: sessionCookie("U1") } });
   assert.equal(denied.status, 403);
-  const deniedHtml = await fetch(`${base}/admin/`, { headers: { cookie: sessionCookie("U1"), accept: "text/html" } });
+  const deniedHtml = await fetch(`${base}/admin/`, {
+    headers: { cookie: `${sessionCookie("U1")}; portal_lang=en`, accept: "text/html" },
+  });
   assert.equal(deniedHtml.status, 403);
   assert.match(await deniedHtml.text(), /admin access/i);
 
@@ -575,4 +577,32 @@ test("impersonate: an admin starts it; the web-ui hop carries target + impersona
   });
   assert.equal(stop.status, 200);
   assert.match(stop.headers.get("set-cookie") ?? "", /portal_impersonate=;[^,]*Max-Age=0/);
+});
+
+test("/lang sanitizes open-redirect bypasses via sanitizeReturnTo", async () => {
+  const bad = [
+    "/\\evil.com",
+    "//evil.com",
+    "/%5cevil.com",
+    "/%5Cevil.com",
+    "/%2f%2fevil.com",
+    "/\\/evil.com",
+    "/\u0000/evil.com",
+    "http://evil.com",
+  ];
+  for (const t of bad) {
+    const r = await fetch(`${base}/lang?to=${encodeURIComponent(t)}`, {
+      headers: { cookie: sessionCookie("U1") },
+      redirect: "manual",
+    });
+    assert.equal(r.status, 302, `expected 302 for ${JSON.stringify(t)}, got ${r.status}`);
+    const loc = r.headers.get("location") ?? "";
+    assert.equal(loc, "/", `expected "/" for ${JSON.stringify(t)}, got ${JSON.stringify(loc)}`);
+  }
+  const ok = await fetch(`${base}/lang?to=${encodeURIComponent("/web-ui/?x=1")}`, {
+    headers: { cookie: sessionCookie("U1") },
+    redirect: "manual",
+  });
+  assert.equal(ok.status, 302);
+  assert.equal(ok.headers.get("location"), "/web-ui/?x=1");
 });

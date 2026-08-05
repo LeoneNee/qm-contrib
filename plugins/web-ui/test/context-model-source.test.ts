@@ -14,7 +14,7 @@ test("the scope's model panel writes through the same endpoint the composer's de
 });
 
 test("the panel offers inheriting the org default and names what is serving now", () => {
-  assert.match(panel, /Org default \(\$\{labelForRuntime\(config, config\.orgDefault\)\}\)/);
+  assert.match(panel, /t\("Org default \(\{model\}\)", \{ model: labelForRuntime\(config, config\.orgDefault\) \}\)/);
   assert.match(panel, /!options\.some\(\(o\) => o\.value === selected\)/);
   assert.match(panel, /no longer offered/);
   assert.match(panel, /Saved — new conversations here run on/);
@@ -22,7 +22,7 @@ test("the panel offers inheriting the org default and names what is serving now"
 });
 
 test("the panel is labelled, focus-keyed, and disabled while saving", () => {
-  assert.match(panel, /ariaLabel: "Default model for this project"/);
+  assert.match(panel, /ariaLabel: t\("Default model for this project"\)/);
   assert.match(panel, /focusKey: "context-model"/);
   assert.match(panel, /disabled: contextModelState\.saving/);
   assert.match(panel, /aria-live="polite"/);

@@ -58,7 +58,7 @@ test("unconfigured deployment: admin HTML navigation to web-ui redirects to admi
 
 test("unconfigured deployment: non-admin HTML navigation gets a not-set-up page, not a bare 403", async () => {
   const r = await fetch(`${base}/`, {
-    headers: { accept: "text/html", cookie: sessionCookie("U-member") },
+    headers: { accept: "text/html", cookie: `${sessionCookie("U-member")}; portal_lang=en` },
     redirect: "manual",
   });
   assert.equal(r.status, 503);

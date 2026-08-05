@@ -131,7 +131,7 @@ test("a prototype-chain segment like /constructor/ never matches a keyed surface
 test("an admin-probe outage is reported as unavailable and is NOT negative-cached", async () => {
   whoamiMode = "down";
   const denied = await fetch(`${base}/admin/`, {
-    headers: { cookie: sessionCookie("U-admin-outage"), accept: "text/html" },
+    headers: { cookie: `${sessionCookie("U-admin-outage")}; portal_lang=en`, accept: "text/html" },
   });
   assert.equal(denied.status, 403);
   assert.match(await denied.text(), /temporarily unavailable/i, "an outage must not read as 'you are not an admin'");
