@@ -1,5 +1,4 @@
 import { isModelProvider, modelSupportedByHarness, resolveModel, SELECTABLE_BASE_MODELS } from "./pi-models.ts";
-import type { ModelProvider } from "./pi-models.ts";
 import { customModelCatalog, customProvidersVersion } from "./custom-providers.ts";
 
 export interface ModelCatalogEntry {

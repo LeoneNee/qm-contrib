@@ -1805,7 +1805,8 @@ ${
 
   function usedToolsSuffix(work: WorkBlock): string {
     const n = work.activity.filter((a) => a.type === "tool_call").length;
-    return n > 0 ? (n === 1 ? t(" (used 1 tool)") : t(" (used {n} tools)", { n })) : "";
+    if (n === 0) return "";
+    return n === 1 ? t(" (used 1 tool)") : t(" (used {n} tools)", { n });
   }
 
   function workLabel(work: WorkBlock): string {

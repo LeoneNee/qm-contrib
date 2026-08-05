@@ -181,9 +181,11 @@ function cronStatusLabel(c: CronView): "enabled" | "disabled" | "archived" {
 }
 
 function cronStatusText(c: CronView): string {
-  const status = cronStatusLabel(c);
-  return t(status === "enabled" ? "Enabled" : status === "disabled" ? "Disabled" : "Archived");
-}
+    const status = cronStatusLabel(c);
+    if (status === "enabled") return t("Enabled");
+    if (status === "disabled") return t("Disabled");
+    return t("Archived");
+  }
 
 export async function renderCronsPage(): Promise<void> {
   if (appState.currentView !== "crons") return;
