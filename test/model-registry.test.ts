@@ -10,6 +10,9 @@ import {
   modelServiceable,
   serviceableModelIds,
   modelProviderAvailabilityFor,
+  onlyProvider,
+  ALL_PROVIDERS_AVAILABLE,
+  NO_PROVIDERS_AVAILABLE,
 } from "../src/model/pi-models.ts";
 import { validateWebTurnModelOptions } from "../src/core/turn-options.ts";
 
@@ -55,47 +58,47 @@ test("FAST_MODE_MODEL_IDS derives from the registry — the web-ui client reads 
 });
 
 test("exposure is provider-key-aware: a model whose provider is unconfigured is not serviceable", () => {
-  const noOpenai = { anthropic: true, openai: false, openrouter: false };
+  const noOpenai = { ...onlyProvider("anthropic") };
   assert.equal(modelServiceable("gpt-5.6-sol", noOpenai), false);
   assert.equal(modelServiceable("claude-opus-4-8", noOpenai), true);
+  assert.equal(modelServiceable("MiniMax-M3", noOpenai), false);
+  assert.equal(modelServiceable("deepseek-v4-flash", noOpenai), false);
   assert.deepEqual(serviceableModelIds(["claude-opus-4-8", "gpt-5.6-sol"], noOpenai), ["claude-opus-4-8"]);
+  assert.equal(modelServiceable("MiniMax-M3", onlyProvider("minimax-cn")), true);
+  assert.equal(modelServiceable("deepseek-v4-flash-0731", onlyProvider("deepseek")), true);
+  assert.equal(modelServiceable("qwen3.8-max", noOpenai), false);
+  assert.equal(modelServiceable("qwen3.8-max", onlyProvider("aliyun")), true);
 });
 
 test("provider-key gating applies only to key-authed harnesses (no over-hiding on CLI-auth harnesses)", () => {
-  const noKeys = { anthropic: false, openai: false, openrouter: false };
+  const noKeys = { ...NO_PROVIDERS_AVAILABLE };
   assert.deepEqual(modelProviderAvailabilityFor("pi", noKeys), noKeys);
   assert.deepEqual(modelProviderAvailabilityFor("opencode", noKeys), noKeys);
-  assert.deepEqual(modelProviderAvailabilityFor("pi", noKeys, { anthropic: false, openai: true, openrouter: true }), {
-    anthropic: false,
+  const openaiKeys = { ...NO_PROVIDERS_AVAILABLE, openai: true, openrouter: true };
+  assert.deepEqual(modelProviderAvailabilityFor("pi", noKeys, openaiKeys), openaiKeys);
+  assert.deepEqual(modelProviderAvailabilityFor("opencode", ALL_PROVIDERS_AVAILABLE, noKeys), {
+    ...NO_PROVIDERS_AVAILABLE,
+    anthropic: true,
     openai: true,
-    openrouter: true,
   });
-  assert.deepEqual(
-    modelProviderAvailabilityFor(
-      "opencode",
-      { anthropic: true, openai: true, openrouter: true },
-      { anthropic: false, openai: false, openrouter: false },
-    ),
-    { anthropic: true, openai: true, openrouter: false },
-  );
   assert.deepEqual(modelProviderAvailabilityFor("codex", noKeys), noKeys);
-  assert.deepEqual(modelProviderAvailabilityFor("codex", { anthropic: false, openai: true, openrouter: false }), {
-    anthropic: false,
-    openai: true,
-    openrouter: false,
-  });
-  assert.deepEqual(modelProviderAvailabilityFor("claude", noKeys), { anthropic: true, openai: true, openrouter: true });
-  assert.deepEqual(modelProviderAvailabilityFor("mock", noKeys), { anthropic: true, openai: true, openrouter: true });
+  const codexKeys = { ...NO_PROVIDERS_AVAILABLE, openai: true };
+  assert.deepEqual(modelProviderAvailabilityFor("codex", codexKeys), codexKeys);
+  assert.deepEqual(modelProviderAvailabilityFor("claude", noKeys), ALL_PROVIDERS_AVAILABLE);
+  assert.deepEqual(modelProviderAvailabilityFor("mock", noKeys), ALL_PROVIDERS_AVAILABLE);
 });
 
 test("web-turn gate refuses a keyless model cleanly, accepts it once the provider is configured", () => {
-  const noOpenai = { anthropic: true, openai: false, openrouter: false };
+  const noOpenai = { ...onlyProvider("anthropic") };
   const refused = validateWebTurnModelOptions({ model: "gpt-5.6-sol" }, null, noOpenai);
   assert.match(refused ?? "", /provider isn't configured/);
   assert.equal(
-    validateWebTurnModelOptions({ model: "gpt-5.6-sol" }, null, { anthropic: true, openai: true, openrouter: false }),
+    validateWebTurnModelOptions({ model: "gpt-5.6-sol" }, null, { ...onlyProvider("anthropic"), openai: true }),
     null,
   );
+  const noMinimax = validateWebTurnModelOptions({ model: "MiniMax-M3" }, null, noOpenai);
+  assert.match(noMinimax ?? "", /provider isn't configured/);
+  assert.equal(validateWebTurnModelOptions({ model: "MiniMax-M3" }, null, onlyProvider("minimax-cn")), null);
 });
 
 test("fast-mode support is registry-driven", () => {

@@ -46,6 +46,11 @@ test("a declared base model provider is enforced at boot, not just at deploy tim
     ["anthropic", "ANTHROPIC_API_KEY"],
     ["openai", "OPENAI_API_KEY"],
     ["openrouter", "OPENROUTER_API_KEY"],
+    ["minimax-cn", "MINIMAX_CN_API_KEY"],
+    ["deepseek", "DEEPSEEK_API_KEY"],
+    ["zai-coding-cn", "ZAI_CODING_CN_API_KEY"],
+    ["moonshotai-cn", "MOONSHOT_API_KEY"],
+    ["aliyun", "ALIYUN_API_KEY"],
   ] as const) {
     assert.deepEqual(validateCoreSecretEnv({ MODEL_PROVIDER: provider } as NodeJS.ProcessEnv), [key]);
     assert.deepEqual(validateCoreSecretEnv({ MODEL_PROVIDER: provider, [key]: "real-key" } as NodeJS.ProcessEnv), []);

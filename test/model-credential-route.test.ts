@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { createInsecureTestServer } from "../src/api/server.ts";
 import { buildApp, type BuiltApp } from "../src/wiring.ts";
+import { providerKeysPresent } from "../src/config.ts";
 import { testConfig } from "./support/test-config.ts";
 import { createModelCredentialStore, type StoredModelCredential } from "../src/model/model-credential-store.ts";
 import { createMemoryMap } from "../src/persistence/durable-map.ts";
@@ -22,23 +23,17 @@ function start(
   built: BuiltApp;
   close: () => Promise<void>;
 } {
-  const built = buildApp(
-    testConfig({
-      dataDir: mkdtempSync(join(tmpdir(), "model-credential-route-")),
-      ...config,
-    }),
-    { modelCredentialFetch },
-  );
+  const merged = testConfig({
+    dataDir: mkdtempSync(join(tmpdir(), "model-credential-route-")),
+    ...config,
+  });
+  const built = buildApp(merged, { modelCredentialFetch });
   const server = createInsecureTestServer(built.app, {
     config: built.config,
     modelCredentials: built.modelCredentials,
     modelCredentialFetch,
     harnessId: config.harness ?? "pi",
-    providerKeys: {
-      anthropic: Boolean(config.anthropicApiKey),
-      openai: Boolean(config.openaiApiKey),
-      openrouter: Boolean(config.openrouterApiKey),
-    },
+    providerKeys: providerKeysPresent(merged),
     admin: built.admin,
     auditLog: built.auditLog,
   });
@@ -60,6 +55,11 @@ test("admin model credentials are encrypted, write-only, live, and removable", a
         { provider: "anthropic", configured: true, source: "environment" },
         { provider: "openai", configured: false, source: "absent" },
         { provider: "openrouter", configured: false, source: "absent" },
+        { provider: "minimax-cn", configured: false, source: "absent" },
+        { provider: "deepseek", configured: false, source: "absent" },
+        { provider: "zai-coding-cn", configured: false, source: "absent" },
+        { provider: "moonshotai-cn", configured: false, source: "absent" },
+        { provider: "aliyun", configured: false, source: "absent" },
       ],
       models: [
         { id: "claude-fable-5", name: "Claude Fable 5", provider: "anthropic" },
@@ -71,6 +71,18 @@ test("admin model credentials are encrypted, write-only, live, and removable", a
         { id: "gpt-5.6-terra", name: "GPT-5.6 Terra", provider: "openai" },
         { id: "gpt-5.6-luna", name: "GPT-5.6 Luna", provider: "openai" },
         { id: "openrouter/auto", name: "OpenRouter Auto", provider: "openrouter" },
+        { id: "MiniMax-M3", name: "MiniMax M3", provider: "minimax-cn" },
+        { id: "MiniMax-M2.7", name: "MiniMax M2.7", provider: "minimax-cn" },
+        { id: "MiniMax-M2.7-highspeed", name: "MiniMax M2.7 Highspeed", provider: "minimax-cn" },
+        { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", provider: "deepseek" },
+        { id: "deepseek-v4-flash-0731", name: "DeepSeek V4 Flash (0731)", provider: "deepseek" },
+        { id: "glm-5.2", name: "GLM 5.2", provider: "zai-coding-cn" },
+        { id: "kimi-k3", name: "Kimi K3", provider: "moonshotai-cn" },
+        { id: "qwen3.8-max", name: "Qwen 3.8 Max", provider: "aliyun" },
+        { id: "qwen3.7-max", name: "Qwen 3.7 Max", provider: "aliyun" },
+        { id: "qwen3.7-plus", name: "Qwen 3.7 Plus", provider: "aliyun" },
+        { id: "qwen3.6-plus", name: "Qwen 3.6 Plus", provider: "aliyun" },
+        { id: "qwen3.6-flash", name: "Qwen 3.6 Flash", provider: "aliyun" },
       ],
     });
     const scopeBefore = await fetch(`${srv.base}/v1/admin/scopes/org%3Adefault-org`, { headers: ADMIN });
@@ -130,6 +142,34 @@ test("OpenRouter validation uses an authenticated endpoint", async () => {
     assert.equal(response.status, 400);
     assert.equal(requested, "https://openrouter.ai/api/v1/key");
     assert.equal(await srv.built.modelCredentials.resolve("openrouter"), null);
+  } finally {
+    await srv.close();
+  }
+});
+
+test("OpenAI-compatible provider validation hits each vendor's models endpoint", async () => {
+  const requested: string[] = [];
+  const srv = start({}, async (input) => {
+    requested.push(String(input));
+    return new Response(null, { status: 200 });
+  });
+  try {
+    for (const provider of ["minimax-cn", "deepseek", "zai-coding-cn", "moonshotai-cn", "aliyun"] as const) {
+      const response = await fetch(`${srv.base}/v1/admin/model-providers/${provider}`, {
+        method: "PUT",
+        headers: ADMIN,
+        body: JSON.stringify({ apiKey: `admin-${provider}-key` }),
+      });
+      assert.equal(response.status, 200);
+      assert.equal(await srv.built.modelCredentials.resolve(provider), `admin-${provider}-key`);
+    }
+    assert.deepEqual(requested, [
+      "https://api.minimaxi.com/v1/models",
+      "https://api.deepseek.com/models",
+      "https://open.bigmodel.cn/api/coding/paas/v4/models",
+      "https://api.moonshot.cn/v1/models",
+      "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
+    ]);
   } finally {
     await srv.close();
   }

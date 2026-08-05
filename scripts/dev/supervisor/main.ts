@@ -311,7 +311,7 @@ async function assembleAndPrepare(spec: BootSpec): Promise<SpecInputs> {
   });
   for (const w of assembled.warnings) phase("env", "warn", w);
   harness = assembled.harness;
-  let harnessDetail = `live ${assembled.harness} turns (anthropic key from ${assembled.anthropicKeySource})`;
+  let harnessDetail = `live ${assembled.harness} turns (${assembled.providerKeySource || "no provider key"})`;
   if (assembled.harness === "mock") harnessDetail = "mock turns";
   else if (assembled.harness === "codex") {
     harnessDetail = `live codex turns (openai key from ${assembled.openaiKeySource || "the environment"})`;

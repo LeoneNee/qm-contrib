@@ -47,6 +47,9 @@ import {
   getRequiredModel,
   modelSupportsFastMode,
   contextTokenBudgetForModel,
+  MODEL_PROVIDERS,
+  CLONE_API_OVERRIDE_PROVIDERS,
+  type ModelProvider,
 } from "../model/pi-models.ts";
 import {
   defineHarness,
@@ -85,6 +88,11 @@ export interface PiHarnessOptions {
   apiKey?: string;
   openaiApiKey?: string;
   openrouterApiKey?: string;
+  minimaxCnApiKey?: string;
+  deepseekApiKey?: string;
+  zaiCodingCnApiKey?: string;
+  moonshotApiKey?: string;
+  aliyunApiKey?: string;
   resolveProviderKeys?: () => Promise<ProviderKeys>;
   tempDirPrefix?: string;
   captureRequests?: boolean;
@@ -110,6 +118,11 @@ export function piHarnessConfigOptions(config: Config): PiHarnessOptions {
     ...(config.anthropicApiKey ? { apiKey: config.anthropicApiKey } : {}),
     ...(config.openaiApiKey ? { openaiApiKey: config.openaiApiKey } : {}),
     ...(config.openrouterApiKey ? { openrouterApiKey: config.openrouterApiKey } : {}),
+    ...(config.minimaxCnApiKey ? { minimaxCnApiKey: config.minimaxCnApiKey } : {}),
+    ...(config.deepseekApiKey ? { deepseekApiKey: config.deepseekApiKey } : {}),
+    ...(config.zaiCodingCnApiKey ? { zaiCodingCnApiKey: config.zaiCodingCnApiKey } : {}),
+    ...(config.moonshotApiKey ? { moonshotApiKey: config.moonshotApiKey } : {}),
+    ...(config.aliyunApiKey ? { aliyunApiKey: config.aliyunApiKey } : {}),
     captureRequests: config.piCaptureRequests,
     systemCacheSplit: config.piSystemCacheSplit,
     ...coreToolOptions(config),
@@ -971,11 +984,7 @@ function removeIsolatedDirs(dirs: { cwd: string; agentDir: string }): void {
   }
 }
 
-export interface ProviderKeys {
-  anthropic?: string;
-  openai?: string;
-  openrouter?: string;
-}
+export type ProviderKeys = Partial<Record<ModelProvider, string>>;
 
 async function buildModelRuntime(keys: ProviderKeys | string): Promise<ModelRuntime> {
   const k: ProviderKeys = typeof keys === "string" ? { anthropic: keys } : keys;
@@ -983,9 +992,11 @@ async function buildModelRuntime(keys: ProviderKeys | string): Promise<ModelRunt
     credentials: new InMemoryCredentialStore(),
     modelsPath: null,
   });
-  if (k.anthropic) await runtime.setRuntimeApiKey("anthropic", k.anthropic, { allowNetwork: false });
-  if (k.openai) await runtime.setRuntimeApiKey("openai", k.openai, { allowNetwork: false });
-  if (k.openrouter) await runtime.setRuntimeApiKey("openrouter", k.openrouter, { allowNetwork: false });
+  for (const provider of CLONE_API_OVERRIDE_PROVIDERS) runtime.registerProvider(provider, {});
+  for (const provider of MODEL_PROVIDERS) {
+    const key = k[provider];
+    if (key) await runtime.setRuntimeApiKey(provider, key, { allowNetwork: false });
+  }
   return runtime;
 }
 
@@ -1203,13 +1214,18 @@ export function createPiHarness(opts?: PiHarnessOptions): Harness {
         ...(opts?.apiKey ? { anthropic: opts.apiKey } : {}),
         ...(opts?.openaiApiKey ? { openai: opts.openaiApiKey } : {}),
         ...(opts?.openrouterApiKey ? { openrouter: opts.openrouterApiKey } : {}),
+        ...(opts?.minimaxCnApiKey ? { "minimax-cn": opts.minimaxCnApiKey } : {}),
+        ...(opts?.deepseekApiKey ? { deepseek: opts.deepseekApiKey } : {}),
+        ...(opts?.zaiCodingCnApiKey ? { "zai-coding-cn": opts.zaiCodingCnApiKey } : {}),
+        ...(opts?.moonshotApiKey ? { "moonshotai-cn": opts.moonshotApiKey } : {}),
+        ...(opts?.aliyunApiKey ? { aliyun: opts.aliyunApiKey } : {}),
       };
   const resolveProviderKeys = async (): Promise<ProviderKeys> => ({
     ...configuredProviderKeys,
     ...(await opts?.resolveProviderKeys?.()),
   });
   const keyForModel = (keys: ProviderKeys, model: Model<Api>): string | undefined =>
-    keys[model.provider as keyof ProviderKeys];
+    keys[model.provider as ModelProvider];
   const captureRequests = opts?.captureRequests ?? true;
   const systemCacheSplit = opts?.systemCacheSplit ?? false;
   const scratchExec = opts?.scratchExec ?? false;

@@ -1,11 +1,13 @@
-import { isModelProvider, type ModelProvider } from "../../../model/pi-models.ts";
+import { aliyunBaseUrl, isModelProvider, type ModelProvider } from "../../../model/pi-models.ts";
 import { selectableModelCatalog } from "../../../model/model-catalog.ts";
 import { sendJson } from "../../http.ts";
 import type { ApiCtx } from "../route.ts";
 import { audit, authorizeAdmin, orgScope } from "../shared.ts";
 
-const VALIDATION_REQUESTS: Record<ModelProvider, { url: string; headers: (apiKey: string) => Record<string, string> }> =
-  {
+const VALIDATION_REQUESTS: Record<
+  ModelProvider,
+  { url: string | (() => string); headers: (apiKey: string) => Record<string, string> }
+> = {
     anthropic: {
       url: "https://api.anthropic.com/v1/models",
       headers: (apiKey) => ({ "x-api-key": apiKey, "anthropic-version": "2023-06-01" }),
@@ -18,6 +20,26 @@ const VALIDATION_REQUESTS: Record<ModelProvider, { url: string; headers: (apiKey
       url: "https://openrouter.ai/api/v1/key",
       headers: (apiKey) => ({ authorization: `Bearer ${apiKey}` }),
     },
+    "minimax-cn": {
+      url: "https://api.minimaxi.com/v1/models",
+      headers: (apiKey) => ({ authorization: `Bearer ${apiKey}` }),
+    },
+    deepseek: {
+      url: "https://api.deepseek.com/models",
+      headers: (apiKey) => ({ authorization: `Bearer ${apiKey}` }),
+    },
+    "zai-coding-cn": {
+      url: "https://open.bigmodel.cn/api/coding/paas/v4/models",
+      headers: (apiKey) => ({ authorization: `Bearer ${apiKey}` }),
+    },
+    "moonshotai-cn": {
+      url: "https://api.moonshot.cn/v1/models",
+      headers: (apiKey) => ({ authorization: `Bearer ${apiKey}` }),
+    },
+    aliyun: {
+      url: () => `${aliyunBaseUrl()}/models`,
+      headers: (apiKey) => ({ authorization: `Bearer ${apiKey}` }),
+    },
   };
 
 async function actor(ctx: ApiCtx) {
@@ -28,10 +50,13 @@ async function actor(ctx: ApiCtx) {
 async function validate(ctx: ApiCtx, provider: ModelProvider, apiKey: string): Promise<boolean> {
   const request = VALIDATION_REQUESTS[provider];
   try {
-    const response = await (ctx.deps.modelCredentialFetch ?? fetch)(request.url, {
-      headers: request.headers(apiKey),
-      signal: AbortSignal.timeout(5_000),
-    });
+    const response = await (ctx.deps.modelCredentialFetch ?? fetch)(
+      typeof request.url === "function" ? request.url() : request.url,
+      {
+        headers: request.headers(apiKey),
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
     return response.ok;
   } catch {
     return false;

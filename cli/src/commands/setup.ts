@@ -43,6 +43,31 @@ const PLAYBOOKS: Readonly<Record<string, readonly string[]>> = {
     "(the key starts with sk-or-).",
     "Only one provider key is needed — set the one whose model you want as the base model.",
   ],
+  MINIMAX_CN_API_KEY: [
+    "Create an API key at https://platform.minimaxi.com/user-center/basic-information/interface-key",
+    "(the MiniMax CN platform, api.minimaxi.com).",
+    "Only one provider key is needed — set the one whose model you want as the base model.",
+  ],
+  DEEPSEEK_API_KEY: [
+    "Create an API key at https://platform.deepseek.com/api_keys",
+    "(the key starts with sk-).",
+    "Only one provider key is needed — set the one whose model you want as the base model.",
+  ],
+  ZAI_CODING_CN_API_KEY: [
+    "Create an API key at https://open.bigmodel.cn/usercenter/apikeys",
+    "(the Z.AI / 智谱 coding plan CN platform).",
+    "Only one provider key is needed — set the one whose model you want as the base model.",
+  ],
+  MOONSHOT_API_KEY: [
+    "Create an API key at https://platform.moonshot.cn/console/api-keys",
+    "(the key starts with sk-).",
+    "Only one provider key is needed — set the one whose model you want as the base model.",
+  ],
+  ALIYUN_API_KEY: [
+    "Create an API key in the Bailian console at https://bailian.console.aliyun.com/",
+    "(a workspace key starts with sk-; point env.core.ALIYUN_BASE_URL at the workspace MaaS endpoint).",
+    "Only one provider key is needed — set the one whose model you want as the base model.",
+  ],
   SLACK_BOT_TOKEN: [
     "Create the Slack app from the scaffolded manifest:",
     "  1. Open https://api.slack.com/apps -> Create New App -> From a manifest.",

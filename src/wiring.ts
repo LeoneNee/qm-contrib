@@ -165,7 +165,7 @@ import { createMockHarness } from "./harness/mock-harness.ts";
 import { createOpenCodeHarness, openCodeHarnessConfigOptions } from "./harness/opencode-harness.ts";
 import { createCodexHarness, codexHarnessConfigOptions } from "./harness/codex-harness.ts";
 import { createClaudeHarness, claudeHarnessConfigOptions } from "./harness/claude-harness.ts";
-import { createPiHarness, piHarnessConfigOptions } from "./harness/pi-harness.ts";
+import { createPiHarness, piHarnessConfigOptions, type ProviderKeys } from "./harness/pi-harness.ts";
 import { createHarnessRouter, resolveRuntimeChoiceDurable } from "./harness/harness-router.ts";
 import type { Harness } from "./harness/harness.ts";
 import { createSecurityScreenProxy, type SecurityScreener } from "./security/security-screener.ts";
@@ -237,6 +237,7 @@ import {
   auxiliaryModelForProvider,
   defaultModelForHarness,
   modelProviderAvailabilityFor,
+  MODEL_PROVIDERS,
   type HarnessId,
 } from "./model/pi-models.ts";
 import { createAdminService, bootAdminGrantSeed, type AdminService } from "./admin/admin-service.ts";
@@ -401,6 +402,11 @@ export function buildApp(
       ...(config.anthropicApiKey ? { anthropic: config.anthropicApiKey } : {}),
       ...(config.openaiApiKey ? { openai: config.openaiApiKey } : {}),
       ...(config.openrouterApiKey ? { openrouter: config.openrouterApiKey } : {}),
+      ...(config.minimaxCnApiKey ? { "minimax-cn": config.minimaxCnApiKey } : {}),
+      ...(config.deepseekApiKey ? { deepseek: config.deepseekApiKey } : {}),
+      ...(config.zaiCodingCnApiKey ? { "zai-coding-cn": config.zaiCodingCnApiKey } : {}),
+      ...(config.moonshotApiKey ? { "moonshotai-cn": config.moonshotApiKey } : {}),
+      ...(config.aliyunApiKey ? { aliyun: config.aliyunApiKey } : {}),
     },
   });
   const identity = createIdentityService(artifactMap<DeactivationRecord>("deactivated_principals"));
@@ -681,17 +687,11 @@ export function buildApp(
       ? createPostgresRunSignalStore(requireDbUrl("RUN_STORE"))
       : createMemoryRunSignalStore();
   const tasks = config.databaseUrl ? createPostgresTaskStore(config.databaseUrl) : createMemoryTaskStore();
-  const resolveModelProviderKeys = async () => {
-    const [anthropic, openai, openrouter] = await Promise.all([
-      modelCredentials.resolve("anthropic"),
-      modelCredentials.resolve("openai"),
-      modelCredentials.resolve("openrouter"),
-    ]);
-    return {
-      ...(anthropic ? { anthropic } : {}),
-      ...(openai ? { openai } : {}),
-      ...(openrouter ? { openrouter } : {}),
-    };
+  const resolveModelProviderKeys = async (): Promise<ProviderKeys> => {
+    const entries = await Promise.all(
+      MODEL_PROVIDERS.map(async (provider) => [provider, await modelCredentials.resolve(provider)] as const),
+    );
+    return Object.fromEntries(entries.filter(([, key]) => key)) as ProviderKeys;
   };
   const runtimeOrgScope = scopeId("org", config.orgId);
   const orgBaseModelId = (): string | undefined =>

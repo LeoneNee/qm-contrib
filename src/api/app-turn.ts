@@ -12,6 +12,7 @@ import {
   isHarnessId,
   modelProviderAvailabilityFor,
   modelServiceable,
+  NO_PROVIDERS_AVAILABLE,
 } from "../model/pi-models.ts";
 import { selectableCatalogForHarness, selectableModelCatalog } from "../model/model-catalog.ts";
 import { resolveRuntimeChoiceDurable } from "../harness/harness-router.ts";
@@ -151,8 +152,7 @@ export function createTurnMethods(
         if (req.harness && !isHarnessId(req.harness)) {
           return { status: "refused", reason: `runtime ${req.harness} is not approved` };
         }
-        const configuredKeys = deps.providerKeys ??
-          deps.modelProviders ?? { anthropic: false, openai: false, openrouter: false };
+        const configuredKeys = deps.providerKeys ?? deps.modelProviders ?? NO_PROVIDERS_AVAILABLE;
         let providers = deps.modelProviders;
         if (deps.modelCredentials) {
           providers = modelProviderAvailabilityFor(

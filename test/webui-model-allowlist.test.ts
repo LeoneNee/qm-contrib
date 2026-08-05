@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { createInsecureTestServer } from "../src/api/server.ts";
 import { buildApp } from "../src/wiring.ts";
+import { onlyProvider } from "../src/model/pi-models.ts";
 import { testConfig } from "./support/test-config.ts";
 
 const ADMIN = { "content-type": "application/json", "x-admin-actor": "admin-alice@default-org" };
@@ -32,7 +33,7 @@ test("the org allowed-models list restricts the runtime-config picker and cleari
     modelCredentials: built.modelCredentials,
     modelCredentialFetch,
     harnessId: "pi",
-    providerKeys: { anthropic: false, openai: false, openrouter: true },
+    providerKeys: onlyProvider("openrouter"),
     admin: built.admin,
     auditLog: built.auditLog,
   });

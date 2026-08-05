@@ -54,6 +54,41 @@ export const FIRST_PARTY_SECRET_SPECS: readonly SecretSpec[] = [
       'OpenRouter API key: bills the base model when modelProvider is "openrouter", an optional deployment fallback otherwise.',
   },
   {
+    name: "MINIMAX_CN_API_KEY",
+    service: "core",
+    required: { when: { kind: "model-provider", provider: "minimax-cn" }, optionalOtherwise: true },
+    description:
+      'MiniMax CN API key (api.minimaxi.com): bills the base model when modelProvider is "minimax-cn", an optional deployment fallback otherwise.',
+  },
+  {
+    name: "DEEPSEEK_API_KEY",
+    service: "core",
+    required: { when: { kind: "model-provider", provider: "deepseek" }, optionalOtherwise: true },
+    description:
+      'DeepSeek API key (api.deepseek.com): bills the base model when modelProvider is "deepseek", an optional deployment fallback otherwise.',
+  },
+  {
+    name: "ZAI_CODING_CN_API_KEY",
+    service: "core",
+    required: { when: { kind: "model-provider", provider: "zai-coding-cn" }, optionalOtherwise: true },
+    description:
+      'Z.AI coding plan CN API key (open.bigmodel.cn): bills the base model when modelProvider is "zai-coding-cn", an optional deployment fallback otherwise.',
+  },
+  {
+    name: "MOONSHOT_API_KEY",
+    service: "core",
+    required: { when: { kind: "model-provider", provider: "moonshotai-cn" }, optionalOtherwise: true },
+    description:
+      'Moonshot AI API key (api.moonshot.cn): bills the base model when modelProvider is "moonshotai-cn", an optional deployment fallback otherwise.',
+  },
+  {
+    name: "ALIYUN_API_KEY",
+    service: "core",
+    required: { when: { kind: "model-provider", provider: "aliyun" }, optionalOtherwise: true },
+    description:
+      'Aliyun Bailian API key (dashscope.aliyuncs.com, or a workspace MaaS endpoint via env.core.ALIYUN_BASE_URL): bills the base model when modelProvider is "aliyun", an optional deployment fallback otherwise.',
+  },
+  {
     name: "OPENAI_API_KEY",
     service: "core",
     required: {

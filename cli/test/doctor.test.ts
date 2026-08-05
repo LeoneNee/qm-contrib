@@ -39,6 +39,47 @@ test("Docker doctor rejects missing and placeholder required secrets before exte
   }
 });
 
+test("aliyun doctor probe reads only env.core.ALIYUN_BASE_URL, the sole source the deployed core sees", async () => {
+  const secrets = new Map([
+    ["CAPABILITY_SECRET", "a".repeat(64)],
+    ["CONNECTOR_SECRET_KEY", "b".repeat(64)],
+    ["CORE_SIGNING_SECRET", "c".repeat(64)],
+    ["PORTAL_IDENTITY_SECRET", "d".repeat(64)],
+    ["SKILL_SIGNING_SECRET", "e".repeat(64)],
+    ["PUBLIC_API_URL", "https://core.example.test"],
+    ["ALIYUN_API_KEY", "sk-aliyun-test"],
+    ["ALIYUN_BASE_URL", "https://env-file.example.test/compatible-mode/v1"],
+  ]);
+  const requested: string[] = [];
+  const priorFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: unknown) => {
+    requested.push(String(input));
+    return new Response("{}", { status: 200 });
+  }) as typeof fetch;
+  const { sandbox: _sandbox, ...withoutSandbox } = config;
+  void _sandbox;
+  try {
+    const withWorkspace: QmConfig = {
+      ...withoutSandbox,
+      modelProvider: "aliyun",
+      env: { core: { HARNESS: "pi", ALIYUN_BASE_URL: "https://config-workspace.example.test/compatible-mode/v1" } },
+    };
+    await doctorCommon(withWorkspace, secrets, { requiredSecretValues: true });
+    assert.deepEqual(requested, ["https://config-workspace.example.test/compatible-mode/v1/models"]);
+
+    requested.length = 0;
+    const withoutWorkspace: QmConfig = { ...withoutSandbox, modelProvider: "aliyun" };
+    await doctorCommon(withoutWorkspace, secrets, { requiredSecretValues: true });
+    assert.deepEqual(
+      requested,
+      ["https://dashscope.aliyuncs.com/compatible-mode/v1/models"],
+      "an .env-only ALIYUN_BASE_URL is dropped by the container, so the probe must fall back to the public endpoint",
+    );
+  } finally {
+    globalThis.fetch = priorFetch;
+  }
+});
+
 test("doctor allows deferred Slack setup but rejects a partial token pair", async () => {
   const { sandbox: _sandbox, ...withoutSandbox } = config;
   void _sandbox;

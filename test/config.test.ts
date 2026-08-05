@@ -1,7 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
-import { baseModelProviders, boolEnv, loadConfig, numEnv, CONFIG_DEFAULTS } from "../src/config.ts";
+import {
+  baseModelProviders,
+  boolEnv,
+  loadConfig,
+  numEnv,
+  providerKeysPresent,
+  CONFIG_DEFAULTS,
+} from "../src/config.ts";
+import { aliyunBaseUrl, onlyProvider } from "../src/model/pi-models.ts";
 
 const productionEnv = {
   NODE_ENV: "production",
@@ -373,7 +381,57 @@ test("maxClaims defaults from CONFIG_DEFAULTS and MAX_CLAIMS overrides", () => {
 test("MODEL_PROVIDER declares the vendor that bills the base model", () => {
   assert.equal(loadConfig({}).modelProvider, undefined);
   assert.equal(loadConfig({ MODEL_PROVIDER: " openrouter ", OPENROUTER_API_KEY: "k" }).modelProvider, "openrouter");
+  assert.equal(loadConfig({ MODEL_PROVIDER: "minimax-cn", MINIMAX_CN_API_KEY: "k" }).modelProvider, "minimax-cn");
+  assert.equal(loadConfig({ MODEL_PROVIDER: "deepseek", DEEPSEEK_API_KEY: "k" }).modelProvider, "deepseek");
+  assert.equal(
+    loadConfig({ MODEL_PROVIDER: "zai-coding-cn", ZAI_CODING_CN_API_KEY: "k" }).modelProvider,
+    "zai-coding-cn",
+  );
+  assert.equal(loadConfig({ MODEL_PROVIDER: "moonshotai-cn", MOONSHOT_API_KEY: "k" }).modelProvider, "moonshotai-cn");
+  assert.equal(loadConfig({ MODEL_PROVIDER: "aliyun", ALIYUN_API_KEY: "k" }).modelProvider, "aliyun");
   assert.throws(() => loadConfig({ MODEL_PROVIDER: "bedrock" }), /MODEL_PROVIDER.*not recognized/);
+});
+
+test("ALIYUN_BASE_URL is parsed at the config boundary and reset by every loadConfig", () => {
+  loadConfig({ ALIYUN_BASE_URL: "https://ws-example.cn-beijing.maas.aliyuncs.com/compatible-mode/v1" });
+  assert.equal(aliyunBaseUrl(), "https://ws-example.cn-beijing.maas.aliyuncs.com/compatible-mode/v1");
+  loadConfig({});
+  assert.equal(aliyunBaseUrl(), "https://dashscope.aliyuncs.com/compatible-mode/v1");
+});
+
+test("OpenAI-compatible provider keys load from the environment", () => {
+  const config = loadConfig({
+    MINIMAX_CN_API_KEY: "mm-key",
+    DEEPSEEK_API_KEY: "ds-key",
+    ZAI_CODING_CN_API_KEY: "zai-key",
+    MOONSHOT_API_KEY: "kimi-key",
+    ALIYUN_API_KEY: "ali-key",
+  });
+  assert.equal(config.minimaxCnApiKey, "mm-key");
+  assert.equal(config.deepseekApiKey, "ds-key");
+  assert.equal(config.zaiCodingCnApiKey, "zai-key");
+  assert.equal(config.moonshotApiKey, "kimi-key");
+  assert.equal(config.aliyunApiKey, "ali-key");
+  assert.deepEqual(providerKeysPresent(config), {
+    anthropic: false,
+    openai: false,
+    openrouter: false,
+    "minimax-cn": true,
+    deepseek: true,
+    "zai-coding-cn": true,
+    "moonshotai-cn": true,
+    aliyun: true,
+  });
+  assert.deepEqual(providerKeysPresent(loadConfig({})), {
+    anthropic: false,
+    openai: false,
+    openrouter: false,
+    "minimax-cn": false,
+    deepseek: false,
+    "zai-coding-cn": false,
+    "moonshotai-cn": false,
+    aliyun: false,
+  });
 });
 
 test("MODEL_PROVIDER is refused when the harness can never run that vendor's models", () => {
@@ -400,7 +458,7 @@ test("MODEL_PROVIDER is refused when the harness can never run that vendor's mod
 test("baseModelProviders constrains the base model only when a provider is declared", () => {
   assert.deepEqual(
     baseModelProviders(loadConfig({ MODEL_PROVIDER: "openrouter", OPENROUTER_API_KEY: "k", ANTHROPIC_API_KEY: "k" })),
-    { anthropic: false, openai: false, openrouter: true },
+    onlyProvider("openrouter"),
     "the declaration outranks a stray key from another vendor",
   );
   assert.equal(

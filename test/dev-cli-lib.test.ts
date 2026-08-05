@@ -278,10 +278,38 @@ test("env assembly precedence: caller > login shell > dev.env > worktree .env; h
   writeFileSync(join(worktree, ".env"), "");
   await assert.rejects(
     assembleEnv({ worktree, callerEnv: {}, allowMock: false, log, probeLoginShell: async () => "" }),
-    /ANTHROPIC_API_KEY is required/,
+    /a model provider key is required .*ANTHROPIC_API_KEY.*ALIYUN_API_KEY/,
   );
   const mock = await assembleEnv({ worktree, callerEnv: {}, allowMock: true, log, probeLoginShell: async () => "" });
   assert.equal(mock.harness, "mock");
+
+  const aliyun = await assembleEnv({
+    worktree,
+    callerEnv: { ALIYUN_API_KEY: "sk-aliyun", ALIYUN_BASE_URL: "https://ws.example.test/compatible-mode/v1" },
+    allowMock: false,
+    log,
+    probeLoginShell: async () => "",
+  });
+  assert.equal(aliyun.harness, "pi", "an aliyun-only machine boots real pi turns");
+  assert.equal(aliyun.env.HARNESS, "pi");
+  assert.equal(aliyun.providerKeySource, "ALIYUN_API_KEY from your shell export");
+  assert.equal(aliyun.env.ALIYUN_BASE_URL, "https://ws.example.test/compatible-mode/v1");
+
+  writeFileSync(
+    join(worktree, ".env"),
+    "MOONSHOT_API_KEY=from-dotenv\nALIYUN_API_KEY=dotenv-aliyun\nALIYUN_BASE_URL=https://dotenv.example.test/compatible-mode/v1\n",
+  );
+  const aliyunDotenv = await assembleEnv({
+    worktree,
+    callerEnv: {},
+    allowMock: false,
+    log,
+    probeLoginShell: async () => "",
+  });
+  assert.equal(aliyunDotenv.harness, "pi");
+  assert.equal(aliyunDotenv.env.ALIYUN_API_KEY, "dotenv-aliyun", "provider keys seed from the worktree .env");
+  assert.equal(aliyunDotenv.env.ALIYUN_BASE_URL, "https://dotenv.example.test/compatible-mode/v1");
+  assert.equal(aliyunDotenv.providerKeySource, "MOONSHOT_API_KEY from the worktree .env");
   if (prevLive === undefined) delete process.env.QM_DEV_ENV;
   else process.env.QM_DEV_ENV = prevLive;
   rmSync(worktree, { recursive: true, force: true });

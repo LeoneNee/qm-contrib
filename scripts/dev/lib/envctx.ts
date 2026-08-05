@@ -9,10 +9,22 @@ export interface AssembledEnv {
   env: Record<string, string>;
   anthropicKeySource: string;
   openaiKeySource: string;
+  providerKeySource: string;
   harness: "pi" | "mock" | "opencode" | "codex" | "claude";
   liveEnvFile: string;
   warnings: string[];
 }
+
+const PI_PROVIDER_KEY_ENV = [
+  "ANTHROPIC_API_KEY",
+  "OPENAI_API_KEY",
+  "OPENROUTER_API_KEY",
+  "MINIMAX_CN_API_KEY",
+  "DEEPSEEK_API_KEY",
+  "ZAI_CODING_CN_API_KEY",
+  "MOONSHOT_API_KEY",
+  "ALIYUN_API_KEY",
+] as const;
 
 const DEV_SECURITY_SECRET_KEYS = [
   "CORE_SIGNING_SECRET",
@@ -96,8 +108,9 @@ export async function assembleEnv(opts: {
 }): Promise<AssembledEnv> {
   const warnings: string[] = [];
   const liveEnvFile = liveEnvPath();
+  const liveEnv = readEnvFile(liveEnvFile);
   const env: Record<string, string> = { ...opts.callerEnv };
-  for (const [k, v] of Object.entries(readEnvFile(liveEnvFile))) {
+  for (const [k, v] of Object.entries(liveEnv)) {
     if (!env[k]) env[k] = v;
   }
 
@@ -124,6 +137,9 @@ export async function assembleEnv(opts: {
     env.OPENAI_API_KEY = wtEnv.OPENAI_API_KEY;
     openaiKeySource = "the worktree .env";
   }
+  for (const key of [...PI_PROVIDER_KEY_ENV, "ALIYUN_BASE_URL"]) {
+    if (!env[key] && wtEnv[key]) env[key] = wtEnv[key];
+  }
 
   let harness: "pi" | "mock" | "opencode" | "codex" | "claude";
   if (opts.callerEnv.HARNESS === "codex" || opts.callerEnv.HARNESS === "claude") {
@@ -134,19 +150,28 @@ export async function assembleEnv(opts: {
         "HARNESS=codex needs OPENAI_API_KEY (its CLI cannot do browser OAuth in a container) -- export it, or add it to the live env file or the worktree .env",
       );
     }
-  } else if (env.ANTHROPIC_API_KEY) {
-    harness = opts.callerEnv.HARNESS === "opencode" ? "opencode" : "pi";
+  } else if (PI_PROVIDER_KEY_ENV.some((key) => env[key])) {
+    harness = opts.callerEnv.HARNESS === "opencode" && (env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY) ? "opencode" : "pi";
     env.HARNESS = harness;
     if (harness === "pi" && !env.PI_CAPTURE_REQUESTS) env.PI_CAPTURE_REQUESTS = "1";
   } else if (opts.allowMock) {
     harness = "mock";
     env.HARNESS = "mock";
-    warnings.push("mock turns explicitly allowed by DEV_INSTANCE_ALLOW_MOCK=1 -- no anthropic key found");
+    warnings.push("mock turns explicitly allowed by DEV_INSTANCE_ALLOW_MOCK=1 -- no model provider key found");
   } else {
     throw new Error(
-      `ANTHROPIC_API_KEY is required: dev instances exercise real LLM calls by default. Export a key, add one to ${liveEnvFile}, or set DEV_INSTANCE_ALLOW_MOCK=1 for a deliberate mock-only wiring check.`,
+      `a model provider key is required (${PI_PROVIDER_KEY_ENV.join(", ")}): dev instances exercise real LLM calls by default. Export one, add one to ${liveEnvFile}, or set DEV_INSTANCE_ALLOW_MOCK=1 for a deliberate mock-only wiring check.`,
     );
   }
+
+  const piKey = PI_PROVIDER_KEY_ENV.find((key) => env[key]);
+  const keySource = (key: string): string => {
+    if (opts.callerEnv[key]) return "your shell export";
+    if (key === "ANTHROPIC_API_KEY" && anthropicKeySource === "your login-shell profile") return anthropicKeySource;
+    if (liveEnv[key]) return liveEnvFile;
+    return "the worktree .env";
+  };
+  const providerKeySource = piKey ? `${piKey} from ${keySource(piKey)}` : "";
 
   for (const key of DEV_SECURITY_SECRET_KEYS) {
     if (!env[key] && wtEnv[key]) env[key] = wtEnv[key];
@@ -155,7 +180,7 @@ export async function assembleEnv(opts: {
     if (!env[k] && wtEnv[k]) env[k] = wtEnv[k];
   }
 
-  return { env, anthropicKeySource, openaiKeySource, harness, liveEnvFile, warnings };
+  return { env, anthropicKeySource, openaiKeySource, providerKeySource, harness, liveEnvFile, warnings };
 }
 
 export function envFileGet(path: string, key: string): string {

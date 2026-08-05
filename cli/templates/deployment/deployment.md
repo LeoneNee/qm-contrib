@@ -69,7 +69,8 @@ npm install
 lands in the deployment repository and its lockfile rather than in the command
 that bootstraps it.
 
-`--model-provider` takes `anthropic`, `openai`, or `openrouter` and defaults to
+`--model-provider` takes `anthropic`, `openai`, `openrouter`, `minimax-cn`,
+`deepseek`, `zai-coding-cn`, `moonshotai-cn`, or `aliyun` and defaults to
 `anthropic`. It writes `modelProvider` into the scaffolded config, which is what
 promotes that provider's key from an optional fallback to a required secret.
 
@@ -174,7 +175,8 @@ mint limits, the boot refusals, and what anonymous visitors are denied.
 
 Whichever sign-in route the deployment takes, the base model needs a key in the
 same pass. `modelProvider` decides which one `qm setup` asks for —
-`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `OPENROUTER_API_KEY` — and the wizard
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `MINIMAX_CN_API_KEY`,
+`DEEPSEEK_API_KEY`, `ZAI_CODING_CN_API_KEY`, `MOONSHOT_API_KEY`, or `ALIYUN_API_KEY` — and the wizard
 prints where to mint it. The operator owns the billing relationship, so they
 create the key; you only place it. It is a required secret, so `qm doctor` calls
 the provider to prove the key is accepted and `qm up` refuses a deployment that
@@ -184,11 +186,16 @@ administrator and then fails their first message.
 
 `modelProvider` also picks the model itself, so no model id has to be chosen at
 deploy time: Anthropic serves `claude-opus-5`, OpenAI `gpt-5.6-sol`, OpenRouter
-`openrouter/auto`. Set `model` in `qm.config.jsonc` only to override that, and
+`openrouter/auto`, MiniMax CN `MiniMax-M3`, DeepSeek `deepseek-v4-flash`, Z.AI
+GLM CN `glm-5.2`, Kimi CN `kimi-k3`, and Aliyun Bailian `qwen3.8-max`. Set `model` in `qm.config.jsonc` only to override that, and
 only with a model the chosen provider can bill — a mismatch is refused at
 startup rather than at the first message. The same rule covers the harness:
 `HARNESS` `codex` runs OpenAI models alone, `claude` runs Anthropic models
-alone, and `openrouter` needs the default `pi` harness.
+alone, and `openrouter` needs the default `pi` harness, as do `minimax-cn`,
+`deepseek`, `zai-coding-cn`, `moonshotai-cn`, and `aliyun` (`pi` or `mock`).
+`aliyun` defaults to the public Bailian endpoint; for a workspace MaaS
+endpoint set `env.core.ALIYUN_BASE_URL` in `qm.config.jsonc` (non-secret
+`.env` keys are not forwarded to containers).
 
 An operator may still prefer to hold the key centrally and rotate it from the
 Admin page. That is a deliberate choice, not the default: drop `modelProvider`

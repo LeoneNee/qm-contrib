@@ -8,6 +8,7 @@ import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import { createInsecureTestServer } from "../src/api/server.ts";
 import { buildApp } from "../src/wiring.ts";
+import { onlyProvider } from "../src/model/pi-models.ts";
 import type { TurnRequest } from "../src/types.ts";
 import { testConfig } from "./support/test-config.ts";
 
@@ -1271,7 +1272,7 @@ test("an OpenAI-only deployment still gets a browse model picker, and Anthropic 
     config: built.config,
     auditLog: built.auditLog,
     baseModelDefault: "gpt-5.6-sol",
-    providerKeys: { anthropic: false, openai: true, openrouter: false },
+    providerKeys: onlyProvider("openai"),
   });
   server.listen(0);
   const base = `http://localhost:${(server.address() as AddressInfo).port}`;

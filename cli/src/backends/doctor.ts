@@ -214,12 +214,12 @@ async function baseModelCheck(config: QmConfig, secrets: Map<string, string>): P
     warn(`${name} is not available locally — skipping the live ${provider} check`);
     return;
   }
-  await modelProviderCheck(provider, key);
+  await modelProviderCheck(provider, key, { baseUrl: config.env.core?.ALIYUN_BASE_URL });
   step(`base model provider ${provider}: ${name} accepted`);
 }
 
 const MODEL_PROVIDER_PROBES: Readonly<
-  Record<ModelProvider, { url: string; headers: (key: string) => Record<string, string> }>
+  Record<ModelProvider, { url: string | ((baseUrl?: string) => string); headers: (key: string) => Record<string, string> }>
 > = {
   anthropic: {
     url: "https://api.anthropic.com/v1/models?limit=1",
@@ -227,13 +227,31 @@ const MODEL_PROVIDER_PROBES: Readonly<
   },
   openai: { url: "https://api.openai.com/v1/models", headers: (key) => ({ authorization: `Bearer ${key}` }) },
   openrouter: { url: "https://openrouter.ai/api/v1/key", headers: (key) => ({ authorization: `Bearer ${key}` }) },
+  "minimax-cn": {
+    url: "https://api.minimaxi.com/v1/models",
+    headers: (key) => ({ authorization: `Bearer ${key}` }),
+  },
+  deepseek: { url: "https://api.deepseek.com/models", headers: (key) => ({ authorization: `Bearer ${key}` }) },
+  "zai-coding-cn": {
+    url: "https://open.bigmodel.cn/api/coding/paas/v4/models",
+    headers: (key) => ({ authorization: `Bearer ${key}` }),
+  },
+  "moonshotai-cn": {
+    url: "https://api.moonshot.cn/v1/models",
+    headers: (key) => ({ authorization: `Bearer ${key}` }),
+  },
+  aliyun: {
+    url: (baseUrl) => `${baseUrl?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1"}/models`,
+    headers: (key) => ({ authorization: `Bearer ${key}` }),
+  },
 };
 
-async function modelProviderCheck(provider: ModelProvider, apiKey: string): Promise<void> {
+async function modelProviderCheck(provider: ModelProvider, apiKey: string, opts?: { baseUrl?: string }): Promise<void> {
   const probe = MODEL_PROVIDER_PROBES[provider];
+  const url = typeof probe.url === "function" ? probe.url(opts?.baseUrl) : probe.url;
   let res: Response;
   try {
-    res = await fetch(probe.url, { headers: probe.headers(apiKey), signal: AbortSignal.timeout(10_000) });
+    res = await fetch(url, { headers: probe.headers(apiKey), signal: AbortSignal.timeout(10_000) });
   } catch (e) {
     throw new CliError(
       `could not reach the ${provider} API: ${errMessage(e)} — check network access (and any proxy) and retry`,

@@ -16,6 +16,7 @@ import {
   defaultModelForProvider,
   isModelProvider,
   onlyProvider,
+  setAliyunBaseUrl,
   type ModelProvider,
   type ModelProviderAvailability,
 } from "./model/pi-models.ts";
@@ -49,6 +50,11 @@ export interface Config {
   anthropicApiKey?: string;
   openaiApiKey?: string;
   openrouterApiKey?: string;
+  minimaxCnApiKey?: string;
+  deepseekApiKey?: string;
+  zaiCodingCnApiKey?: string;
+  moonshotApiKey?: string;
+  aliyunApiKey?: string;
   modelProvider?: ModelProvider;
   piCaptureRequests: boolean;
   piSystemCacheSplit: boolean;
@@ -155,6 +161,11 @@ export function providerKeysPresent(config: Config): ModelProviderAvailability {
     anthropic: Boolean(config.anthropicApiKey),
     openai: Boolean(config.openaiApiKey),
     openrouter: Boolean(config.openrouterApiKey),
+    "minimax-cn": Boolean(config.minimaxCnApiKey),
+    deepseek: Boolean(config.deepseekApiKey),
+    "zai-coding-cn": Boolean(config.zaiCodingCnApiKey),
+    "moonshotai-cn": Boolean(config.moonshotApiKey),
+    aliyun: Boolean(config.aliyunApiKey),
   };
 }
 
@@ -551,6 +562,7 @@ function modelProviderEnvStrict(env: NodeJS.ProcessEnv): ModelProvider | undefin
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  setAliyunBaseUrl(env.ALIYUN_BASE_URL);
   const missingSecrets = validateCoreSecretEnv(env);
   if (missingSecrets.length) {
     throw new Error(`missing or insecure required core secrets: ${missingSecrets.join(", ")}`);
@@ -727,6 +739,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ...(env.ANTHROPIC_API_KEY ? { anthropicApiKey: env.ANTHROPIC_API_KEY } : {}),
     ...(env.OPENAI_API_KEY ? { openaiApiKey: env.OPENAI_API_KEY } : {}),
     ...(env.OPENROUTER_API_KEY ? { openrouterApiKey: env.OPENROUTER_API_KEY } : {}),
+    ...(env.MINIMAX_CN_API_KEY ? { minimaxCnApiKey: env.MINIMAX_CN_API_KEY } : {}),
+    ...(env.DEEPSEEK_API_KEY ? { deepseekApiKey: env.DEEPSEEK_API_KEY } : {}),
+    ...(env.ZAI_CODING_CN_API_KEY ? { zaiCodingCnApiKey: env.ZAI_CODING_CN_API_KEY } : {}),
+    ...(env.MOONSHOT_API_KEY ? { moonshotApiKey: env.MOONSHOT_API_KEY } : {}),
+    ...(env.ALIYUN_API_KEY ? { aliyunApiKey: env.ALIYUN_API_KEY } : {}),
     ...(modelProvider ? { modelProvider } : {}),
     ...(env.ADMIN_GRANTS ? { adminGrants: env.ADMIN_GRANTS } : {}),
     piCaptureRequests: boolEnvStrict("PI_CAPTURE_REQUESTS", env.PI_CAPTURE_REQUESTS) ?? true,

@@ -301,9 +301,71 @@ test(
 );
 
 test(
+  "env.core.ALIYUN_BASE_URL reaches the core container while an .env copy is dropped with a warning",
+  { timeout: 60_000 },
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), "qm-docker-aliyun-env-"));
+    const priorPath = process.env.PATH;
+    const priorDb = process.env.DATABASE_URL;
+    const log = console.log,
+      warn = console.warn;
+    const lines: string[] = [];
+    try {
+      writeFileSync(
+        join(dir, CONFIG_FILENAME),
+        JSON.stringify({
+          contract: 1,
+          orgId: "aliyunenv",
+          publicUrl: "http://localhost:8080",
+          target: "docker",
+          services: ["core"],
+          modelProvider: "aliyun",
+          env: { core: { HARNESS: "pi", ALIYUN_BASE_URL: "https://config-workspace.example.test/compatible-mode/v1" } },
+        }),
+      );
+      writeFileSync(
+        join(dir, ".env"),
+        `CAPABILITY_SECRET=capability-sign\nCONNECTOR_SECRET_KEY=${"connector-key".repeat(3)}\nCORE_SIGNING_SECRET=${"core-sign".repeat(4)}\nPORTAL_IDENTITY_SECRET=portal-sign\nSKILL_SIGNING_SECRET=${"skill-sign".repeat(4)}\nPUBLIC_API_URL=https://core.example.test\nALIYUN_API_KEY=sk-aliyun-supersecret\nALIYUN_BASE_URL=https://env-file.example.test/compatible-mode/v1\n`,
+      );
+      const fake = fakeDocker(dir);
+      process.env.PATH = `${dir}:${priorPath}`;
+      process.env.DATABASE_URL = "postgres://external/db";
+      console.log = (...parts: unknown[]): void => void lines.push(parts.join(" "));
+      console.warn = console.log;
+      const { config } = loadConfigAt(join(dir, CONFIG_FILENAME));
+      await dockerUp(config, dir, {});
+
+      const argv = readFileSync(fake.argvLog, "utf8");
+      assert.ok(
+        argv.includes("ALIYUN_BASE_URL=https://config-workspace.example.test/compatible-mode/v1"),
+        "the config-declared workspace URL flows to core as non-secret env",
+      );
+      assert.ok(!argv.includes("env-file.example.test"), "the .env ALIYUN_BASE_URL is dropped, not forwarded");
+      assert.ok(!argv.includes("sk-aliyun-supersecret"), "the key travels via the env-file, never the argv");
+      assert.ok(
+        lines.some((l) => /\.env keys not forwarded/.test(l) && l.includes("ALIYUN_BASE_URL")),
+        "the dropped .env key is warned about",
+      );
+
+      const envFiles = readFileSync(fake.envCopy, "utf8");
+      assert.ok(envFiles.includes("ALIYUN_API_KEY=sk-aliyun-supersecret"), "the computed secret routes through the file");
+      assert.ok(!envFiles.includes("env-file.example.test"), "the .env URL never reaches the container env-file");
+    } finally {
+      console.log = log;
+      console.warn = warn;
+      process.env.PATH = priorPath;
+      if (priorDb === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = priorDb;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
   "docker up gates missing required secrets before any container starts while Slack setup remains optional",
   { timeout: 60_000 },
   async () => {
+
     const dir = mkdtempSync(join(tmpdir(), "qm-docker-secrets-gate-"));
     const priorPath = process.env.PATH;
     const priorDb = process.env.DATABASE_URL;

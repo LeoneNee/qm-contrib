@@ -38,8 +38,10 @@ SLACK_BOT_TOKEN=xoxb-… SLACK_APP_TOKEN=xapp-… \
 npm start
 ```
 
-(`OPENAI_API_KEY` or `OPENROUTER_API_KEY` works in place of `ANTHROPIC_API_KEY`; the base
-model follows whichever provider you configure.)
+(`OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `MINIMAX_CN_API_KEY`, `DEEPSEEK_API_KEY`,
+`ZAI_CODING_CN_API_KEY`, `MOONSHOT_API_KEY`, or `ALIYUN_API_KEY` works in place of `ANTHROPIC_API_KEY`; the
+base model follows whichever provider you configure. `MODEL_PROVIDER` pins the base model
+to one provider, e.g. `minimax-cn`, `deepseek`, `zai-coding-cn`, `moonshotai-cn`, or `aliyun`.)
 
 (Or put the tokens in the repo-root `.env` — `npm start` loads it via
 `node --env-file-if-exists`.) It logs `connected as @agent …` when live; without

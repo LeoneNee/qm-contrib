@@ -65,6 +65,11 @@ test("a deployment that declares a provider runs that provider's base model", as
     ["anthropic", "anthropicApiKey", "claude-opus-5"],
     ["openai", "openaiApiKey", "gpt-5.6-sol"],
     ["openrouter", "openrouterApiKey", "openrouter/auto"],
+    ["minimax-cn", "minimaxCnApiKey", "MiniMax-M3"],
+    ["deepseek", "deepseekApiKey", "deepseek-v4-flash"],
+    ["zai-coding-cn", "zaiCodingCnApiKey", "glm-5.2"],
+    ["moonshotai-cn", "moonshotApiKey", "kimi-k3"],
+    ["aliyun", "aliyunApiKey", "qwen3.8-max"],
   ] as const) {
     const srv = start({ modelProvider, [key]: `deployment-${modelProvider}-key` });
     try {

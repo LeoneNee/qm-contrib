@@ -13,7 +13,12 @@ type SecretGate =
   | "linear-oauth"
   | "model-anthropic"
   | "model-openai"
-  | "model-openrouter";
+  | "model-openrouter"
+  | "model-minimax-cn"
+  | "model-deepseek"
+  | "model-zai-coding-cn"
+  | "model-moonshotai-cn"
+  | "model-aliyun";
 
 export interface RuntimeSecretSpec {
   name: string;
@@ -29,6 +34,11 @@ export const CORE_SECRET_SPECS: readonly RuntimeSecretSpec[] = [
   { name: "OPENAI_API_KEY", requiredWhen: ["codex", "model-openai"] },
   { name: "ANTHROPIC_API_KEY", requiredWhen: "model-anthropic" },
   { name: "OPENROUTER_API_KEY", requiredWhen: "model-openrouter" },
+  { name: "MINIMAX_CN_API_KEY", requiredWhen: "model-minimax-cn" },
+  { name: "DEEPSEEK_API_KEY", requiredWhen: "model-deepseek" },
+  { name: "ZAI_CODING_CN_API_KEY", requiredWhen: "model-zai-coding-cn" },
+  { name: "MOONSHOT_API_KEY", requiredWhen: "model-moonshotai-cn" },
+  { name: "ALIYUN_API_KEY", requiredWhen: "model-aliyun" },
   { name: "DATABASE_URL", requiredWhen: "postgres" },
   { name: "SPRITES_TOKEN", requiredWhen: "sprites" },
   { name: "FLY_API_TOKEN", requiredWhen: "fly-sandbox" },
@@ -53,6 +63,11 @@ const GATE_PREDICATES: Readonly<Record<SecretGate, (env: NodeJS.ProcessEnv) => b
   "model-anthropic": (env) => env.MODEL_PROVIDER?.trim() === "anthropic",
   "model-openai": (env) => env.MODEL_PROVIDER?.trim() === "openai",
   "model-openrouter": (env) => env.MODEL_PROVIDER?.trim() === "openrouter",
+  "model-minimax-cn": (env) => env.MODEL_PROVIDER?.trim() === "minimax-cn",
+  "model-deepseek": (env) => env.MODEL_PROVIDER?.trim() === "deepseek",
+  "model-zai-coding-cn": (env) => env.MODEL_PROVIDER?.trim() === "zai-coding-cn",
+  "model-moonshotai-cn": (env) => env.MODEL_PROVIDER?.trim() === "moonshotai-cn",
+  "model-aliyun": (env) => env.MODEL_PROVIDER?.trim() === "aliyun",
 };
 
 export function validateCoreSecretEnv(env: NodeJS.ProcessEnv): string[] {

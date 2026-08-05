@@ -9,7 +9,16 @@ export const THINKING_LEVELS = ["auto", "low", "medium", "high", "xhigh", "max",
 export const HARNESS_IDS = ["pi", "opencode", "codex", "claude", "mock"] as const;
 export type HarnessId = (typeof HARNESS_IDS)[number];
 
-export const MODEL_PROVIDERS = ["anthropic", "openai", "openrouter"] as const;
+export const MODEL_PROVIDERS = [
+  "anthropic",
+  "openai",
+  "openrouter",
+  "minimax-cn",
+  "deepseek",
+  "zai-coding-cn",
+  "moonshotai-cn",
+  "aliyun",
+] as const;
 export type ModelProvider = (typeof MODEL_PROVIDERS)[number];
 
 export function isModelProvider(value: unknown): value is ModelProvider {
@@ -33,13 +42,79 @@ interface ModelEntry {
     template: string;
     input: number;
     output: number;
+    cacheRead?: number;
     cacheWrite?: number;
     contextWindow: number;
     maxTokens: number;
+    templateProvider?: string;
+    provider?: ModelProvider;
+    api?: PiModel["api"];
+    baseUrl?: string;
+    baseUrlEnv?: string;
+    compat?: PiModel["compat"];
   };
 }
 
 const GPT_56_CLONE = { template: "gpt-5.5", contextWindow: 1_050_000, maxTokens: 128_000 } as const;
+
+const MINIMAX_CN_OPENAI_BASE_URL = "https://api.minimaxi.com/v1";
+
+const MINIMAX_CN_COMPAT = {
+  supportsStore: false,
+  supportsDeveloperRole: false,
+  requiresReasoningContentOnAssistantMessages: true,
+} as const;
+
+function minimaxCnClone(template: string, input: number, output: number, cacheWrite: number): ModelEntry["clone"] {
+  return {
+    template,
+    api: "openai-completions",
+    baseUrl: MINIMAX_CN_OPENAI_BASE_URL,
+    compat: { ...MINIMAX_CN_COMPAT },
+    input,
+    output,
+    cacheRead: 0.06,
+    cacheWrite,
+    contextWindow: template === "MiniMax-M3" ? 1_000_000 : 204_800,
+    maxTokens: template === "MiniMax-M3" ? 128_000 : 131_072,
+  };
+}
+
+export const ALIYUN_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+
+let aliyunBaseUrlOverride: string | undefined;
+
+export function setAliyunBaseUrl(url: string | undefined): void {
+  aliyunBaseUrlOverride = url?.trim() || undefined;
+}
+
+export function aliyunBaseUrl(): string {
+  return aliyunBaseUrlOverride ?? ALIYUN_DEFAULT_BASE_URL;
+}
+
+const BASE_URL_ENV_RESOLVERS: Readonly<Record<string, () => string>> = { ALIYUN_BASE_URL: aliyunBaseUrl };
+
+function aliyunClone(
+  template: string,
+  maxTokens: number,
+  input: number,
+  output: number,
+  cacheRead: number,
+): ModelEntry["clone"] {
+  return {
+    template,
+    templateProvider: "qwen-token-plan-cn",
+    provider: "aliyun",
+    api: "openai-completions",
+    baseUrl: ALIYUN_DEFAULT_BASE_URL,
+    baseUrlEnv: "ALIYUN_BASE_URL",
+    input,
+    output,
+    cacheRead,
+    contextWindow: 1_000_000,
+    maxTokens,
+  };
+}
 
 export const MODEL_REGISTRY: readonly ModelEntry[] = [
   { id: "claude-fable-5", name: "Claude Fable 5", fastMode: false, webui: true, base: true },
@@ -87,6 +162,89 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     clone: { ...GPT_56_CLONE, input: 1, output: 6 },
   },
   { id: "openrouter/auto", name: "OpenRouter Auto", fastMode: false, webui: true, base: true },
+  {
+    id: "MiniMax-M3",
+    name: "MiniMax M3",
+    fastMode: false,
+    webui: true,
+    base: true,
+    clone: minimaxCnClone("MiniMax-M3", 0.3, 1.2, 0),
+  },
+  {
+    id: "MiniMax-M2.7",
+    name: "MiniMax M2.7",
+    fastMode: false,
+    webui: true,
+    base: true,
+    clone: minimaxCnClone("MiniMax-M2.7", 0.3, 1.2, 0.375),
+  },
+  {
+    id: "MiniMax-M2.7-highspeed",
+    name: "MiniMax M2.7 Highspeed",
+    fastMode: false,
+    webui: true,
+    base: true,
+    clone: minimaxCnClone("MiniMax-M2.7-highspeed", 0.6, 2.4, 0.375),
+  },
+  { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", fastMode: false, webui: true, base: true },
+  {
+    id: "deepseek-v4-flash-0731",
+    name: "DeepSeek V4 Flash (0731)",
+    fastMode: false,
+    webui: true,
+    base: true,
+    clone: {
+      template: "deepseek-v4-flash",
+      input: 0.14,
+      output: 0.28,
+      cacheRead: 0.0028,
+      contextWindow: 1_000_000,
+      maxTokens: 384_000,
+    },
+  },
+  { id: "glm-5.2", name: "GLM 5.2", fastMode: false, webui: true, base: true },
+  { id: "kimi-k3", name: "Kimi K3", fastMode: false, webui: true, base: true },
+  {
+    id: "qwen3.8-max",
+    name: "Qwen 3.8 Max",
+    fastMode: false,
+    webui: true,
+    base: true,
+    clone: aliyunClone("qwen3.8-max-preview", 131_072, 1.7, 5, 0.17),
+  },
+  {
+    id: "qwen3.7-max",
+    name: "Qwen 3.7 Max",
+    fastMode: false,
+    webui: true,
+    base: true,
+    clone: aliyunClone("qwen3.7-max", 65_536, 1.7, 5, 0.17),
+  },
+  {
+    id: "qwen3.7-plus",
+    name: "Qwen 3.7 Plus",
+    fastMode: false,
+    webui: true,
+    base: true,
+    clone: aliyunClone("qwen3.7-plus", 64_000, 0.3, 1.1, 0.03),
+  },
+  {
+    id: "qwen3.6-plus",
+    name: "Qwen 3.6 Plus",
+    fastMode: false,
+    webui: true,
+    base: true,
+    clone: aliyunClone("qwen3.6-plus", 65_536, 0.3, 1.7, 0.03),
+  },
+  {
+    id: "qwen3.6-flash",
+    name: "Qwen 3.6 Flash",
+    fastMode: false,
+    webui: true,
+    base: true,
+    auxiliary: true,
+    clone: aliyunClone("qwen3.6-flash", 65_536, 0.17, 1, 0.017),
+  },
   { id: "claude-opus-4-7", name: "Claude Opus 4.7", fastMode: true, webui: false, base: false },
   { id: "claude-opus-4-6", name: "Claude Opus 4.6", fastMode: true, webui: false, base: false },
 ];
@@ -128,15 +286,23 @@ function cloneModel(model: PiModel, id: string, name: string, overrides: Partial
 export function resolveModel(id: string): PiModel | undefined {
   const entry = REGISTRY_BY_ID.get(id);
   if (entry?.clone) {
-    const template = builtinModel(entry.clone.template);
+    const template = entry.clone.templateProvider
+      ? getModel(entry.clone.templateProvider, entry.clone.template)
+      : builtinModel(entry.clone.template);
     return template
       ? cloneModel(template, id, entry.name, {
+          ...(entry.clone.provider ? { provider: entry.clone.provider } : {}),
+          ...(entry.clone.api ? { api: entry.clone.api } : {}),
+          ...(entry.clone.baseUrl
+            ? { baseUrl: (entry.clone.baseUrlEnv && BASE_URL_ENV_RESOLVERS[entry.clone.baseUrlEnv]?.()) || entry.clone.baseUrl }
+            : {}),
+          ...(entry.clone.compat ? { compat: entry.clone.compat } : {}),
           contextWindow: entry.clone.contextWindow,
           maxTokens: entry.clone.maxTokens,
           cost: {
             input: entry.clone.input,
             output: entry.clone.output,
-            cacheRead: entry.clone.input / 10,
+            cacheRead: entry.clone.cacheRead ?? entry.clone.input / 10,
             cacheWrite: entry.clone.cacheWrite ?? 0,
           },
         })
@@ -189,26 +355,25 @@ export function defaultModelForHarness(
   return servable?.id ?? preferred;
 }
 
-export interface ModelProviderAvailability {
-  anthropic: boolean;
-  openai: boolean;
-  openrouter: boolean;
-}
+export type ModelProviderAvailability = Record<ModelProvider, boolean>;
 
 export function modelServiceable(id: string, providers: ModelProviderAvailability): boolean {
   const provider = resolveModel(id)?.provider;
   if (!provider) return false;
-  if (provider === "openai") return providers.openai;
-  if (provider === "anthropic") return providers.anthropic;
-  if (provider === "openrouter") return providers.openrouter;
-  return true;
+  return providers[provider as ModelProvider] ?? true;
 }
 
 export function serviceableModelIds(ids: readonly string[], providers: ModelProviderAvailability): string[] {
   return ids.filter((id) => modelServiceable(id, providers));
 }
 
-export const ALL_PROVIDERS_AVAILABLE: ModelProviderAvailability = { anthropic: true, openai: true, openrouter: true };
+function allProviders(value: boolean): ModelProviderAvailability {
+  return Object.fromEntries(MODEL_PROVIDERS.map((provider) => [provider, value])) as ModelProviderAvailability;
+}
+
+export const ALL_PROVIDERS_AVAILABLE: ModelProviderAvailability = allProviders(true);
+
+export const NO_PROVIDERS_AVAILABLE: ModelProviderAvailability = allProviders(false);
 
 export function modelProviderAvailabilityFor(
   harness: string,
@@ -216,13 +381,14 @@ export function modelProviderAvailabilityFor(
   managedKeys: ModelProviderAvailability = configKeys,
 ): ModelProviderAvailability {
   if (harness === "pi") return managedKeys;
-  if (harness === "opencode") return { ...configKeys, openrouter: false };
+  if (harness === "opencode")
+    return { ...allProviders(false), anthropic: configKeys.anthropic, openai: configKeys.openai };
   if (harness === "codex") return configKeys;
   return ALL_PROVIDERS_AVAILABLE;
 }
 
 export function onlyProvider(provider: ModelProvider): ModelProviderAvailability {
-  return { anthropic: false, openai: false, openrouter: false, [provider]: true };
+  return { ...allProviders(false), [provider]: true };
 }
 
 export function defaultModelForProvider(harness: string, provider: ModelProvider): string | undefined {
@@ -241,6 +407,16 @@ export function getRequiredModel(id: string): PiModel {
 export function modelSupportsFastMode(modelId: string | undefined): boolean {
   return !!modelId && (REGISTRY_BY_ID.get(modelId)?.fastMode ?? false);
 }
+
+export const CLONE_API_OVERRIDE_PROVIDERS: readonly ModelProvider[] = [
+  ...new Set(
+    MODEL_REGISTRY.flatMap((entry) => {
+      if (!entry.clone?.api) return [];
+      const provider = resolveModel(entry.id)?.provider;
+      return provider && isModelProvider(provider) ? [provider] : [];
+    }),
+  ),
+];
 
 export const FAST_MODE_MODEL_IDS: readonly string[] = MODEL_REGISTRY.filter((m) => m.fastMode).map((m) => m.id);
 
