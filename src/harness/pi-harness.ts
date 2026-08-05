@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -51,6 +51,7 @@ import {
   CLONE_API_OVERRIDE_PROVIDERS,
   type ModelProvider,
 } from "../model/pi-models.ts";
+import { customModelsJson, customProvidersVersion } from "../model/custom-providers.ts";
 import {
   defineHarness,
   type Harness,
@@ -984,18 +985,40 @@ function removeIsolatedDirs(dirs: { cwd: string; agentDir: string }): void {
   }
 }
 
-export type ProviderKeys = Partial<Record<ModelProvider, string>>;
+export interface ProviderKeys {
+  anthropic?: string;
+  openai?: string;
+  openrouter?: string;
+  [provider: string]: string | undefined;
+}
+
+let cachedCustomModels: { version: number; path: string | null } | null = null;
+function customModelsPath(): string | null {
+  const version = customProvidersVersion();
+  if (cachedCustomModels?.version === version) return cachedCustomModels.path;
+  const custom = customModelsJson();
+  let path: string | null = null;
+  if (custom) {
+    path = join(mkdtempSync(join(tmpdir(), "pi-custom-models-")), "models.json");
+    writeFileSync(path, JSON.stringify(custom));
+  }
+  cachedCustomModels = { version, path };
+  return path;
+}
 
 async function buildModelRuntime(keys: ProviderKeys | string): Promise<ModelRuntime> {
   const k: ProviderKeys = typeof keys === "string" ? { anthropic: keys } : keys;
+  // Custom providers must exist in the runtime's own registry — a runtime
+  // API key alone is invisible to its availability checks. models.json is
+  // the sanctioned vocabulary, so materialize one when any are registered.
+  const modelsPath = customModelsPath();
   const runtime = await ModelRuntime.create({
     credentials: new InMemoryCredentialStore(),
-    modelsPath: null,
+    modelsPath,
   });
-  for (const provider of CLONE_API_OVERRIDE_PROVIDERS) runtime.registerProvider(provider, {});
-  for (const provider of MODEL_PROVIDERS) {
-    const key = k[provider];
-    if (key) await runtime.setRuntimeApiKey(provider, key, { allowNetwork: false });
+for (const provider of CLONE_API_OVERRIDE_PROVIDERS) runtime.registerProvider(provider, {});
+  for (const [provider, apiKey] of Object.entries(k)) {
+    if (apiKey) await runtime.setRuntimeApiKey(provider, apiKey, { allowNetwork: false });
   }
   return runtime;
 }
@@ -1224,8 +1247,7 @@ export function createPiHarness(opts?: PiHarnessOptions): Harness {
     ...configuredProviderKeys,
     ...(await opts?.resolveProviderKeys?.()),
   });
-  const keyForModel = (keys: ProviderKeys, model: Model<Api>): string | undefined =>
-    keys[model.provider as ModelProvider];
+const keyForModel = (keys: ProviderKeys, model: Model<Api>): string | undefined => keys[String(model.provider)];
   const captureRequests = opts?.captureRequests ?? true;
   const systemCacheSplit = opts?.systemCacheSplit ?? false;
   const scratchExec = opts?.scratchExec ?? false;

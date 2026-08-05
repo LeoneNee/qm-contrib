@@ -293,6 +293,10 @@ export function createComposerSurface(ctx: ConvCtx): ComposerSurface {
       config.effective,
       config.modelCatalog,
     );
+    composerState.effortLevel =
+      (config.effective.effortLevel as EffortLevel | undefined) ?? defaultEffortForModel(currentModelOption().model);
+    composerState.fastMode =
+      config.effective.fastMode === true && modelSupportsFastMode(scopeKey(), config.effective.modelId);
     if (agent && (!ctx.chat.state.threadRef || !threadModelPicks.has(ctx.chat.state.threadRef)))
       agent.state.model = currentModelOption().model;
     ctx.chat.drawActiveChat(agent);
@@ -300,7 +304,14 @@ export function createComposerSurface(ctx: ConvCtx): ComposerSurface {
   }
 
   async function changeScopeRuntime(
-    change: { harnessId?: string; modelId?: string; inherit?: boolean; keep?: boolean },
+    change: {
+      harnessId?: string;
+      modelId?: string;
+      effortLevel?: string;
+      fastMode?: boolean;
+      inherit?: boolean;
+      keep?: boolean;
+    },
     agent: Agent,
   ): Promise<void> {
     const request = ++runtimeRequest;
@@ -309,19 +320,7 @@ export function createComposerSurface(ctx: ConvCtx): ComposerSurface {
       const config = await updateRuntimeConfig(scopeId, change);
       if (request !== runtimeRequest || scopeId !== ctx.chat.state.scopeId) return;
       seededRuntime = null;
-      activeRuntimeConfig = config;
-      setFastModeModelIds(scopeKey(), config.fastModeModelIds);
-      orgFastModeDefault = config.interactiveFastMode === true;
-      applyRuntimeOptions(
-        scopeKey(),
-        config.approvedHarnesses,
-        config.modelsByHarness,
-        config.effective,
-        config.modelCatalog,
-      );
-      if (!ctx.chat.state.threadRef || !threadModelPicks.has(ctx.chat.state.threadRef))
-        agent.state.model = currentModelOption().model;
-      composerState.error = "";
+      applySelectedRuntime(config, agent);
     } catch (e) {
       if (request !== runtimeRequest || scopeId !== ctx.chat.state.scopeId) return;
       composerState.error = errMessage(e, t("Could not update the scope default."));
@@ -340,7 +339,15 @@ export function createComposerSurface(ctx: ConvCtx): ComposerSurface {
     if (fastAvailable) fastTitle = fastOn ? t("Fast mode active") : t("Fast mode");
     const approvalPauses = ctx.chat.activePendingApprovals();
     const runtimePending = activeRuntimeConfig === null;
-    const modelToggled = !runtimePending && selectedModel.value !== defaultModelValue(scopeKey());
+    const effectiveEffort =
+      (activeRuntimeConfig?.effective.effortLevel as EffortLevel | undefined) ??
+      defaultEffortForModel(selectedModel.model);
+    const effectiveFast = activeRuntimeConfig?.effective.fastMode === true && fastAvailable;
+    const runtimeToggled =
+      !runtimePending &&
+      (selectedModel.value !== defaultModelValue(scopeKey()) ||
+        composerState.effortLevel !== effectiveEffort ||
+        fastOn !== effectiveFast);
     const inputBlocked = runtimePending || ctx.chat.state.resolvingApprovals.size > 0 || approvalPauses.length > 0;
     const attachingDisabled = inputBlocked;
     let placeholder = t("Ask anything");
@@ -514,22 +521,22 @@ export function createComposerSurface(ctx: ConvCtx): ComposerSurface {
                 ? settingsControl(agent, selectedModel, inputBlocked)
                 : html`
                     ${
-                      modelToggled
+                      runtimeToggled
                         ? html`<button
                             class="runtime-default-btn"
                             type="button"
-                            aria-label=${t("Make default")}
+aria-label=${t("Make default")}
                             data-mobile-label=${t("Default")}
                             title=${t("Use this harness and model as the default for this scope")}
                             ?disabled=${inputBlocked}
-                            @click=${() => changeScopeRuntime({ harnessId: selectedModel.harnessId, modelId: selectedModel.model.id }, agent)}
+                            @click=${() => changeScopeRuntime({ harnessId: selectedModel.harnessId, modelId: selectedModel.model.id, effortLevel: composerState.effortLevel, fastMode: fastOn }, agent)}
                           >
                             ${t("Make default")}
                           </button>`
                         : nothing
                     }
                     ${
-                      modelToggled && activeRuntimeConfig?.scopeOverride
+                      runtimeToggled && activeRuntimeConfig?.scopeOverride
                         ? html`<button
                             class="runtime-default-btn"
                             type="button"

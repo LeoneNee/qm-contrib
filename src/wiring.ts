@@ -158,6 +158,9 @@ import { createPostgresEgressAuditSink } from "./admin/postgres-egress-audit-sin
 import { createConsentLinkStore, type ConsentLinkStore, type ConsentLinkRecord } from "./connectors/consent-link.ts";
 import { createModelGateway, type ModelGateway } from "./model/model-gateway.ts";
 import { createModelCredentialStore, type ModelCredentialStore } from "./model/model-credential-store.ts";
+import { setProviderBaseUrls } from "./model/provider-endpoints.ts";
+import { setCustomProviders } from "./model/custom-providers.ts";
+import { createCustomProviderStore, type CustomProviderStore } from "./model/custom-provider-store.ts";
 import { createMemorySessionStore } from "./sessions/memory-session-store.ts";
 import { createPostgresSessionStore } from "./sessions/postgres-session-store.ts";
 import type { SessionStore } from "./sessions/session-store.ts";
@@ -319,6 +322,8 @@ export interface BuiltApp {
   secretDrops: SecretDropStore;
   modelGateway: ModelGateway;
   modelCredentials: ModelCredentialStore;
+  customProviders: CustomProviderStore;
+  refreshCustomProviders: () => Promise<void>;
   acl: AclStore;
   skills: SkillStore;
   skillBundles: SkillBundleStore;
@@ -395,6 +400,7 @@ export function buildApp(
   const pgArtifactMap = config.databaseUrl ? createPostgresMapFactory(config.databaseUrl) : null;
   const artifactMap = <T>(table: string): DurableMap<T> =>
     pgArtifactMap ? pgArtifactMap.map<T>(table) : createMemoryMap<T>();
+  setProviderBaseUrls(config.providerBaseUrls);
   const modelCredentials = createModelCredentialStore({
     backing: artifactMap("model_credentials"),
     keyMaterial: config.connectorSecretKey ?? randomBytes(32),
@@ -687,11 +693,41 @@ export function buildApp(
       ? createPostgresRunSignalStore(requireDbUrl("RUN_STORE"))
       : createMemoryRunSignalStore();
   const tasks = config.databaseUrl ? createPostgresTaskStore(config.databaseUrl) : createMemoryTaskStore();
+const customProviders = createCustomProviderStore({
+    backing: artifactMap("custom_model_providers"),
+    keyMaterial: config.connectorSecretKey ?? randomBytes(32),
+  });
+  const refreshCustomProviders = async () => {
+    setCustomProviders(await customProviders.enabled());
+  };
+  void refreshCustomProviders().catch((e) =>
+    console.error("[wiring] custom provider hydration failed:", errMessage(e)),
+  );
   const resolveModelProviderKeys = async (): Promise<ProviderKeys> => {
-    const entries = await Promise.all(
-      MODEL_PROVIDERS.map(async (provider) => [provider, await modelCredentials.resolve(provider)] as const),
+    const [builtinEntries, enabledCustom] = await Promise.all([
+      Promise.all(
+        MODEL_PROVIDERS.map(async (provider) => [provider, await modelCredentials.resolve(provider)] as const),
+      ),
+      customProviders.enabled(),
+    ]);
+    const customKeys = Object.fromEntries(
+      (
+        await Promise.all(
+          enabledCustom.map(async (p) => {
+            try {
+              return [p.id, await customProviders.resolveKey(p.id)] as const;
+            } catch (e) {
+              console.error(`[model] custom provider ${p.id}: key unreadable: ${errMessage(e)}`);
+              return [p.id, null] as const;
+            }
+          }),
+        )
+      ).filter(([, key]) => key),
     );
-    return Object.fromEntries(entries.filter(([, key]) => key)) as ProviderKeys;
+    return {
+      ...Object.fromEntries(builtinEntries.filter(([, key]) => key)),
+      ...customKeys,
+    } as ProviderKeys;
   };
   const runtimeOrgScope = scopeId("org", config.orgId);
   const orgBaseModelId = (): string | undefined =>
@@ -706,7 +742,31 @@ export function buildApp(
         signals: runSignals,
       }),
     ],
-    ["opencode", createOpenCodeHarness({ ...openCodeHarnessConfigOptions(config), signals: runSignals, tasks })],
+    [
+      "opencode",
+      createOpenCodeHarness({
+        ...openCodeHarnessConfigOptions(config),
+        signals: runSignals,
+        tasks,
+        resolveCustomProviders: async () => {
+          const enabled = await customProviders.enabled();
+          return Promise.all(
+            enabled.map(async (spec) => {
+              try {
+                const apiKey = await customProviders.resolveKey(spec.id);
+                return { spec, ...(apiKey ? { apiKey } : {}) };
+              } catch (e) {
+                // An unreadable key must not prevent the opencode server from
+                // starting; the provider is configured keyless and its models
+                // fail individually instead.
+                console.error(`[model] custom provider ${spec.id}: key unreadable: ${errMessage(e)}`);
+                return { spec };
+              }
+            }),
+          );
+        },
+      }),
+    ],
     ["codex", createCodexHarness({ ...codexHarnessConfigOptions(config), signals: runSignals, tasks })],
     ["claude", createClaudeHarness({ ...claudeHarnessConfigOptions(config), signals: runSignals, tasks })],
     ["mock", createMockHarness()],
@@ -1049,6 +1109,8 @@ export function buildApp(
     tasks,
     modelGateway,
     modelCredentials,
+    customProviders,
+    refreshCustomProviders,
     ...(overrides.modelCredentialFetch ? { modelCredentialFetch: overrides.modelCredentialFetch } : {}),
     acl,
     admin,
@@ -1383,6 +1445,8 @@ export function buildApp(
     secretDrops,
     modelGateway,
     modelCredentials,
+    customProviders,
+    refreshCustomProviders,
     acl,
     skills,
     skillBundles,

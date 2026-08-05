@@ -1,5 +1,7 @@
 import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import type { Api, Model } from "@earendil-works/pi-ai";
+import { providerBaseUrl } from "./provider-endpoints.ts";
+import { isCustomModelId, resolveCustomModel } from "./custom-providers.ts";
 
 const getModel = getBuiltinModel as unknown as (provider: string, id: string) => Model<Api> | undefined;
 
@@ -264,7 +266,12 @@ export const SELECTABLE_BASE_MODELS: ReadonlyArray<{ id: string; name: string }>
 function builtinModel(id: string): PiModel | undefined {
   for (const provider of MODEL_PROVIDERS) {
     const m = getModel(provider, id);
-    if (m) return m;
+    if (!m) continue;
+    // Endpoint overrides apply here, at the single choke point every
+    // resolution passes through — including clones, whose template is
+    // spread by cloneModel, so an overridden template covers its clones.
+    const override = providerBaseUrl(String(m.provider ?? provider));
+    return override ? { ...m, baseUrl: override } : m;
   }
   return undefined;
 }
@@ -308,7 +315,7 @@ export function resolveModel(id: string): PiModel | undefined {
         })
       : undefined;
   }
-  return builtinModel(id);
+  return builtinModel(id) ?? (resolveCustomModel(id) as unknown as PiModel | undefined);
 }
 
 export function auxiliaryModelForProvider(provider: string): string | undefined {
@@ -334,6 +341,8 @@ export function contextTokenBudgetForModel(id: string): number | undefined {
 
 export function modelSupportedByHarness(id: string | undefined, harness: string): boolean {
   if (!id) return false;
+  if (isCustomModelId(id) && !REGISTRY_BY_ID.has(id))
+    return harness === "pi" || harness === "opencode" || harness === "mock";
   if (harness === "pi" || harness === "opencode" || harness === "mock") return Boolean(resolveModel(id));
   const provider = resolveModel(id)?.provider;
   if (harness === "claude") return provider === "anthropic" || /^claude-/i.test(id);
@@ -360,6 +369,7 @@ export type ModelProviderAvailability = Record<ModelProvider, boolean>;
 export function modelServiceable(id: string, providers: ModelProviderAvailability): boolean {
   const provider = resolveModel(id)?.provider;
   if (!provider) return false;
+if (isCustomModelId(id) && !REGISTRY_BY_ID.has(id)) return true;
   return providers[provider as ModelProvider] ?? true;
 }
 
