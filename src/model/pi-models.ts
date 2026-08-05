@@ -86,7 +86,7 @@ export const ALIYUN_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatibl
 
 let aliyunBaseUrlOverride: string | undefined;
 
-export function setAliyunBaseUrl(url: string | undefined): void {
+export function setAliyunBaseUrl(url?: string | undefined): void {
   aliyunBaseUrlOverride = url?.trim() || undefined;
 }
 
@@ -364,7 +364,7 @@ export function defaultModelForHarness(
   return servable?.id ?? preferred;
 }
 
-export type ModelProviderAvailability = Record<ModelProvider, boolean>;
+export type ModelProviderAvailability = Partial<Record<ModelProvider, boolean>>;
 
 export function modelServiceable(id: string, providers: ModelProviderAvailability): boolean {
   const provider = resolveModel(id)?.provider;
