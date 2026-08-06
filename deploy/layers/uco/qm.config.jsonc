@@ -1,0 +1,24 @@
+{
+  "contract": 1,
+  "orgId": "uco",
+  "publicUrl": "https://qm.test.uco.com",
+  "target": "docker",
+  "modelProvider": "aliyun",
+  "model": "qwen3.7-max",
+  "services": ["core", "web-ui", "admin", "portal", "auth"],
+  "env": {
+    "core": {
+      "HARNESS": "pi",
+      "SANDBOX_BACKEND": "local",
+      "LOCAL_SANDBOX_IMAGE": "qm-sandbox-local:latest",
+      "ALIYUN_BASE_URL": "https://ws-938qq80l9r40g5xa.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+    },
+    "auth": {
+      "AUTH_EMAIL_TRANSPORT": "smtp",
+      "AUTH_ALLOWED_EMAIL_DOMAIN": "uco.com",
+      "AUTH_BRAND_NAME": "UCO",
+      "SMTP_PORT": "587",
+      "SMTP_TLS": "starttls"
+    }
+  }
+}
