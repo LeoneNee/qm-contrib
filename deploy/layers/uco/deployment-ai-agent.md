@@ -58,10 +58,13 @@ docker ps | grep sbx                        # 沙箱容器
 node cli/bin/qm.ts up --build-from --config deploy/layers/uco/qm.config.jsonc
 ```
 
-## 5. 验收结果（2026-08-06 全绿）
+## 5. 验收结果（2026-08-06）
 
-- `curl http://127.0.0.1:8080/healthz` → ok；portal 401 登录门禁；nginx 443→401、80→301。
-- SMTP：curl 登录链 → auth 日志 `sign-in link sent to leoneni@uco.com (OK)`；`leoneni@thelian.com` 被拒（`sign-in link suppressed`，未发信）。
+部署侧验证全部通过；**域名对员工可达仍依赖 §6 的 LB 转发配置**，以下为在部署机上完成的验证：
+
+- `curl http://127.0.0.1:8080/healthz` → ok；portal 401 登录门禁；nginx 443→401、80→301；`https://10.2.66.124:443` 从服务器自身可达。
+- SMTP：curl 登录链 → auth 日志 `sign-in link sent to leoneni@uco.com (OK)`（mail.uco.com 真实接收）；`leoneni@thelian.com` 被拒（`sign-in link suppressed`，未发信）。
+- 完整 OIDC 登录链验证通过：login → authorize → verify → portal callback → 会话 → 首页 200。其中 verify 用的签名链接是用 `AUTH_TOKEN_SECRET` 按 broker 同一算法自铸的（等价于点击邮件里的链接，但未经过真实邮箱收件箱）；真实邮件已由 mail.uco.com 确认投递到 leoneni@uco.com，首次真实用户点击邮件链接即可完成同样流程。
 - 真实 turn（双管理员各一次，签名 curl）：runs 表 status=done，阿里云模型真实回复；沙箱卷 `qm-home-personal-*` 内宿主机读回 UUID 一致（证明 local sandbox 真实执行）。
 - `qm check` / `qm conformance` 全 pass（conformance 的 layer-resolved 需先 PUT 一次空 layer bundle 落 durable store，已执行）。
 - 容器全部 `--restart unless-stopped`。
