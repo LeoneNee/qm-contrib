@@ -30,7 +30,8 @@ export function runChecks(
   const configError = (message: string, clause = "config.v1"): void => void configErrors.push({ clause, message });
   const provider = hostingProvider(config.target);
   configErrors.push(...provider.validateConfig(config, plugins));
-  if (provider.requiresSandboxApp && !config.sandbox?.app?.trim()) {
+  const localSandbox = config.env.core?.SANDBOX_BACKEND?.trim() === "local";
+  if (provider.requiresSandboxApp && !config.sandbox?.app?.trim() && !localSandbox) {
     configError("contract sandbox.app: a Fly agent-computer app is required for docker and fly targets");
   }
   for (const skill of config.skills) {

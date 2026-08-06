@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { CliError, bold, die, dim, errMessage, header, note, ok, step, warn } from "../log.ts";
@@ -291,7 +291,7 @@ export function dockerServiceEnv(config: QmConfig, service: ServiceName): Record
       out,
       brokerWiring(service, {
         publicUrl: config.publicUrl,
-        authBaseUrl: "http://auth:8080",
+        authBaseUrl: "http://auth.internal:8080",
         ...(config.env.auth?.AUTH_ALLOWED_EMAIL_DOMAIN
           ? { allowedEmailDomain: config.env.auth.AUTH_ALLOWED_EMAIL_DOMAIN }
           : {}),
@@ -317,6 +317,13 @@ function serviceEnv(ctx: DockerCtx, service: ServiceName): Record<string, string
     const layerSubs = existingLayerSubdirs(ctx);
     if (layerSubs.length) out.DEPLOYMENT_LAYER = "/layer";
     Object.assign(out, ctx.sandboxEnv);
+    if (config.env.core?.SANDBOX_BACKEND?.trim() === "local") {
+      out.SANDBOX_BACKEND = "local";
+      out.LOCAL_SANDBOX_DOCKER_BIN = "/usr/local/bin/docker";
+      out.LOCAL_SANDBOX_PEER_NETWORK = ctx.network;
+      const image = config.env.core.LOCAL_SANDBOX_IMAGE;
+      if (image) out.LOCAL_SANDBOX_IMAGE = image;
+    }
   } else {
     Object.assign(out, dockerServiceEnv(config, service));
   }
@@ -395,6 +402,7 @@ function runArgs(ctx: DockerCtx, service: ServiceName, image: string): { args: s
     ctx.network,
     "--network-alias",
     service,
+    ...(service === "auth" ? ["--network-alias", "auth.internal"] : []),
     "--restart",
     "no",
   ];
@@ -403,6 +411,15 @@ function runArgs(ctx: DockerCtx, service: ServiceName, image: string): { args: s
     args.push("-v", `${ctx.prefix}-coredata:/data`);
     for (const m of layerMounts(ctx)) args.push("-v", m);
     for (const m of skillMounts(ctx)) args.push("-v", m);
+    if (ctx.config.env.core?.SANDBOX_BACKEND?.trim() === "local") {
+      args.push("-v", "/var/run/docker.sock:/var/run/docker.sock");
+      const bundledDocker = join(ctx.configDir, "bin", "docker");
+      args.push("-v", `${existsSync(bundledDocker) ? bundledDocker : "/usr/bin/docker"}:/usr/local/bin/docker:ro`);
+      try {
+        const gid = statSync("/var/run/docker.sock").gid;
+        args.push("--group-add", String(gid));
+      } catch {}
+    }
   }
   if (def.docker.hostPortOffset !== undefined) {
     args.push("-p", `${baseHostPort(ctx) + def.docker.hostPortOffset}:${def.docker.internalPort}`);
