@@ -9,7 +9,7 @@
 |---|---|
 | Stack 名 | `uco`（容器前缀 `qm-uco-*`） |
 | 部署目录 | 服务器 `~/qm`（git clone 关系：经 git bundle 与 origin/master 对齐） |
-| 入口 | `https://qm.test.uco.com`（nginx 容器自签证书，443→portal 8081；80 跳转 443） |
+| 入口 | `https://qm.test.uco.com`（nginx 容器自签证书，443→portal 8081；80 跳转 443；域名员工侧尚不可达，待 §6 LB 转发） |
 | 登录 | 内置 auth broker + 公司 SMTP（mail.uco.com:587 STARTTLS）一次性链接 |
 | 邮箱准入 | `AUTH_ALLOWED_EMAIL_DOMAIN=uco.com`（单域，配置即生效于 auth+portal 两侧） |
 | 管理员 | `ADMIN_GRANTS=leoneni@uco.com:org_admin,fuchaojian@uco.com:org_admin` |
@@ -60,11 +60,11 @@ node cli/bin/qm.ts up --build-from --config deploy/layers/uco/qm.config.jsonc
 
 ## 5. 验收结果（2026-08-06）
 
-部署侧验证全部通过；**域名对员工可达仍依赖 §6 的 LB 转发配置**，以下为在部署机上完成的验证：
+部署机侧验证全部通过；**域名对员工可达仍依赖 §6 的 LB 转发配置**，以下为在部署机上完成的验证：
 
 - `curl http://127.0.0.1:8080/healthz` → ok；portal 401 登录门禁；nginx 443→401、80→301；`https://10.2.66.124:443` 从服务器自身可达。
 - SMTP：curl 登录链 → auth 日志 `sign-in link sent to leoneni@uco.com (OK)`（mail.uco.com 真实接收）；`leoneni@thelian.com` 被拒（`sign-in link suppressed`，未发信）。
-- 完整 OIDC 登录链验证通过：login → authorize → verify → portal callback → 会话 → 首页 200。其中 verify 用的签名链接是用 `AUTH_TOKEN_SECRET` 按 broker 同一算法自铸的（等价于点击邮件里的链接，但未经过真实邮箱收件箱）；真实邮件已由 mail.uco.com 确认投递到 leoneni@uco.com，首次真实用户点击邮件链接即可完成同样流程。
+- 完整 OIDC 登录链验证通过：login → authorize → verify → portal callback → 会话 → 首页 200。其中 verify 用的签名链接是用 `AUTH_TOKEN_SECRET` 按 broker 同一算法自铸的（等价于点击邮件里的链接，但未经过真实邮箱收件箱）；真实邮件已由 mail.uco.com 确认投递到 leoneni@uco.com，预期首次真实用户点击邮件链接即可完成同样流程。
 - 真实 turn（双管理员各一次，签名 curl）：runs 表 status=done，阿里云模型真实回复；沙箱卷 `qm-home-personal-*` 内宿主机读回 UUID 一致（证明 local sandbox 真实执行）。
 - `qm check` / `qm conformance` 全 pass（conformance 的 layer-resolved 需先 PUT 一次空 layer bundle 落 durable store，已执行）。
 - 容器全部 `--restart unless-stopped`。
