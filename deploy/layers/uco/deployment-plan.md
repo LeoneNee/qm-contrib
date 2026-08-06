@@ -218,23 +218,24 @@ node cli/bin/qm.ts outputs --json --config deploy/layers/uco/qm.config.jsonc
 
 本 fork 规则：core 与 upstream 字节一致，org 内容只放 `deploy/layers/<org>/`，core 通用改动走 upstream-pr。
 
-当前工作区有以下**未提交 core 改动**，本方案 §3.4/§4 依赖其中前两项：
+以下 core 改动已提交进 fork master（`2d5697e` 等），归属仍是 upstream-pr，同步后应与 upstream 重新字节一致；本方案 §3.4/§4 依赖其中前两项：
 
 | 文件 | 改动 | 归属 |
 |---|---|---|
 | `cli/src/backends/docker.ts` | `SANDBOX_BACKEND=local` 时给 core 挂 docker.sock/docker 二进制、`auth.internal` 网络别名 | 通用能力 → upstream-pr |
 | `cli/src/commands/check.ts` | local 沙箱时不再强制 `sandbox.app` | 通用能力 → upstream-pr |
 | `plugins/auth/src/smtp.ts` | 删除 AUTH PLAIN（内网 SMTP 兼容） | 通用能力 → upstream-pr |
-| `deploy/core/Dockerfile` | 放宽 npm audit（离线构建容错） | 通用能力 → upstream-pr |
-| `WATCHDOG.yml` | 模型指向 openai-codex/gpt-5.6-sol | org 偏好，不随 upstream |
+| `WATCHDOG.yml` | 模型指向 openai-codex/gpt-5.6-sol | org 偏好，本地未提交，不随 upstream |
 
-部署前需决定：这些改动是提交进 fork（破例）还是先发 upstream 再 `update-qm` 同步。推荐后者。
+`deploy/core/Dockerfile` 曾放宽 npm audit，已恢复为 upstream 的门禁原样，不再是分歧。
+
+部署前需决定：上述 core 改动何时发 upstream-pr 并用 `update-qm` 同步回 fork。
 
 ## 8. 后续工作清单
 
 1. [ ] VPS 装 Node 24+、Docker+Buildx；确认 `ls /dev/kvm`（决定 §6.4 组合）
 2. [ ] 内网域名 + 内网 CA 证书 + 反代（443→8081）就绪（§4 步骤 0）
-3. [ ] 决定未提交 core 改动的归属（upstream-pr vs fork 提交）
+3. [ ] 发 upstream-pr（docker.ts / check.ts / smtp.ts 的 core 改动）并同步回 fork
 4. [ ] 收集：DeepSeek API key、内网 SMTP 凭据、管理员邮箱、双域名用户清单
 5. [ ] 执行 §4 部署步骤 + §5 验收
 6. [ ] upstream：on-prem 沙箱加固（QM backend adapter + execd writeStdin 补丁；或 OpenSandbox 适配立项）
