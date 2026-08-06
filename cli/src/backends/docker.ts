@@ -415,10 +415,9 @@ function runArgs(ctx: DockerCtx, service: ServiceName, image: string): { args: s
       args.push("-v", "/var/run/docker.sock:/var/run/docker.sock");
       const bundledDocker = join(ctx.configDir, "bin", "docker");
       args.push("-v", `${existsSync(bundledDocker) ? bundledDocker : "/usr/bin/docker"}:/usr/local/bin/docker:ro`);
-      try {
-        const gid = statSync("/var/run/docker.sock").gid;
-        args.push("--group-add", String(gid));
-      } catch {}
+      if (existsSync("/var/run/docker.sock")) {
+        args.push("--group-add", String(statSync("/var/run/docker.sock").gid));
+      }
     }
   }
   if (def.docker.hostPortOffset !== undefined) {
