@@ -6,6 +6,7 @@
   "modelProvider": "aliyun",
   "model": "qwen3.7-max",
   "services": ["core", "web-ui", "admin", "portal", "auth"],
+  "secretEnv": { "core": { "ADMIN_GRANTS": "ADMIN_GRANTS" } },
   "env": {
     "core": {
       "HARNESS": "pi",
